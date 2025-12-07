@@ -175,6 +175,19 @@ python -m app.main
 - POST `/api/v1/control/command` funktioniert
 - POST `/api/v1/control/stop` funktioniert
 
+Kurzer Hinweis!
+- Swagger also die Ui die sich öffnet. 
+- Ist eine Art Playground dort können wir die API's Endpoints testen
+- dort wird angezeigt welche Parameter auch zum testen nötig sind
+- zeigt auch Beispiele
+
+Beispiel: 
+1. POST /api/v1/control/command
+2. "Try it out"
+3. Gibst ein: {"command": "forward 2.0"}
+4. "Execute"
+5. Siehst sofort die Antwort!
+
 ### Was funktioniert JETZT schon:
 - Vollständige Backend-Struktur  
 - REST API (FastAPI)  
