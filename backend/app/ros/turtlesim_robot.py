@@ -2,22 +2,23 @@
 Turtlesim Backend
 """
 from app.ros.robot_interface import RobotInterface
+from app.ros.ros2_manager import TwistCommand, get_turtlesim_publisher
 
 
 class TurtlesimRobot(RobotInterface):
     
     def move_forward(self, duration: float):
-        # TODO: ROS2 Publisher für /turtle1/cmd_vel
-        print(f"[Turtlesim] Vorwärts {duration}s")
+        pub = get_turtlesim_publisher()
+        pub.publish_for(TwistCommand(linear_x=1.0, angular_z=0.0, duration_s=duration))
     
     def turn_left(self, duration: float):
-        # TODO: ROS2 Publisher
-        print(f"[Turtlesim] Links {duration}s")
+        pub = get_turtlesim_publisher()
+        pub.publish_for(TwistCommand(linear_x=0.0, angular_z=1.5, duration_s=duration))
     
     def turn_right(self, duration: float):
-        # TODO: ROS2 Publisher
-        print(f"[Turtlesim] Rechts {duration}s")
+        pub = get_turtlesim_publisher()
+        pub.publish_for(TwistCommand(linear_x=0.0, angular_z=-1.5, duration_s=duration))
     
     def stop(self):
-        # TODO: ROS2 Publisher
-        print("[Turtlesim] Stop")
+        pub = get_turtlesim_publisher()
+        pub.stop()

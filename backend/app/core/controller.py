@@ -27,6 +27,12 @@ class RobotController:
         else:
             raise ValueError(f"Unbekannte Aktion: {action}")
 
+    def health(self) -> dict:
+        """Quick health info for debugging."""
+        return {
+            "robot_backend": type(self.robot).__name__,
+        }
+
 
 # Globale Instanz
 controller = RobotController()

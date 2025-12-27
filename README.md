@@ -72,12 +72,12 @@ Robot Interface  ← Hier beginnt ROS
 3. **Backend wechseln** ohne Code-Änderung:
    ```bash
    ROBOT_BACKEND=sim    # Turtlesim
-   ROBOT_BACKEND=bot   # TurtleBot
+   ROBOT_BACKEND=real   # TurtleBot
    ```
 
 4. **Befehle als Text**:
    ```
-   "forward 2.0"   → Roboter fährt 2 Sekunden vorwärts
+   "forward 2.0"   → Roboter fährt 2 Sekunden vorwärts (Dauer in Sekunden)
    "left 1.5"      → Roboter dreht 1,5 Sekunden links
    "stop"          → Roboter stoppt
    ```
@@ -130,17 +130,83 @@ POST http://localhost:8000/api/v1/control/stop
 - ✅ Command Parser funktioniert
 - ✅ Controller-Logik implementiert
 - ✅ Interface-System funktioniert
-- ⏳ ROS2 Integration (TODOs in turtlesim_robot.py)
-- ⏳ TurtleBot4 Backend
+- ✅ ROS2 Turtlesim Anbindung funktioniert (publisht auf `/turtle1/cmd_vel`)
+- ⏳ TurtleBot Backend (noch Platzhalter)
 - ⏳ STT/TTS Features
+
+## Was geht JETZT schon?
+
+- End-to-End Pipeline: HTTP `POST /api/v1/control/command` → Parser → Controller → `TurtlesimRobot` → ROS2 `/turtle1/cmd_vel`
+- `GET /api/v1/control/health` zeigt, welches Backend aktiv ist
+- Smoke-Test ohne FastAPI: `python test_ros2_turtlesim.py`
+
+Wichtig:
+- ROS2 muss in der Python-Umgebung verfügbar sein (`import rclpy` + `from geometry_msgs.msg import Twist`).
+   Auf Windows ist das oft am einfachsten über **WSL/Ubuntu** mit ROS2.
 
 ## Nächste Schritte
 
-1. ROS2 in `turtlesim_robot.py` implementieren
-2. Backend mit echtem Turtlesim testen
-3. TurtleBot4 Backend entwickeln
+1. TurtleBot Backend entwickeln (`ROBOT_BACKEND=real`)
+2. Distanz-Kommandos ergänzen (z.B. `forward 2m` statt Sekunden)
+3. STT/TTS Features hinzufügen
 4. Frontend (Quasar) anbinden
-5. Speech-Features hinzufügen
+
+## ROS2 (Turtlesim) Durchgang
+
+Wichtig: Der ROS2-Teil benötigt eine Python-Umgebung, in der `import rclpy` und `from geometry_msgs.msg import Twist` funktioniert.
+Auf Windows ist das oft **die ROS2-eigene Python-Umgebung** (nicht conda).
+
+### Schnelltest für Kommilitonen (WSL/Ubuntu + ROS2 Jazzy)
+
+Voraussetzungen:
+- ROS2 Jazzy ist in WSL/Ubuntu installiert (Ordner `/opt/ros/jazzy` existiert).
+- WSLg ist aktiv (damit das `turtlesim` Fenster erscheint).
+
+**Terminal A (WSL): turtlesim starten**
+```bash
+source /opt/ros/jazzy/setup.bash
+ros2 run turtlesim turtlesim_node
+```
+
+**Terminal B (WSL): Backend starten**
+```bash
+cd /mnt/c/Users/Administratorr/Desktop/robot-control/backend
+source /opt/ros/jazzy/setup.bash
+
+# einmalig (falls noch nicht vorhanden): pip + venv
+sudo apt update
+sudo apt install -y python3-pip python3-venv
+
+# einmalig: venv erstellen (wichtig: ROS2 Python Pakete bleiben sichtbar)
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -r requirements.txt
+
+export ROBOT_BACKEND=sim
+python -m app.main
+```
+
+**Command testen**
+- Swagger UI: http://localhost:8000/docs
+- Oder per `curl` in WSL:
+```bash
+curl -X POST http://localhost:8000/api/v1/control/command \
+   -H "Content-Type: application/json" \
+   -d '{"command":"forward 2.0"}'
+```
+
+### Smoke-Test ohne FastAPI
+Wenn du nur ROS2-Publishing testen willst:
+```bash
+cd /mnt/c/Users/Administratorr/Desktop/robot-control/backend
+source /opt/ros/jazzy/setup.bash
+source .venv/bin/activate
+python test_ros2_turtlesim.py
+```
+
+### Debug
+- `GET /api/v1/control/health` zeigt, welches Backend aktiv ist.
 
 ## Warum so modular?
 
@@ -148,7 +214,7 @@ POST http://localhost:8000/api/v1/control/stop
 
 **Lösung:** Einfach `.env` ändern:
 ```bash
-ROBOT_BACKEND=bot  # Fertig!
+ROBOT_BACKEND=real  # Fertig!
 ```
 
 Der Rest bleibt gleich.
@@ -197,9 +263,7 @@ Beispiel:
 - Swagger UI für API-Tests  
 
 ### Was noch fehlt:
-- ROS2 Integration (nur Platzhalter-Code vorhanden)  
-- Echte Turtle-Steuerung in Turtlesim  
-- TurtleBot4 Implementierung  
+- TurtleBot Implementierung  
 - Speech-to-Text / Text-to-Speech  
 
-**Stand:** Das Backend-Framework ist komplett einsatzbereit. Die ROS2-Anbindung kann jetzt Schritt für Schritt implementiert wer
+**Stand:** Das Backend-Framework ist einsatzbereit; Turtlesim-ROS2 Commands funktionieren in einer ROS2-fähigen Umgebung.

@@ -2,7 +2,13 @@
 Main FastAPI App - MINIMAL
 """
 from fastapi import FastAPI
+from dotenv import load_dotenv
+
 from app.api.v1 import control, stt, tts
+
+
+# Load backend/.env if present (useful for local dev & WSL)
+load_dotenv()
 
 
 app = FastAPI(title="Robot Control Backend")

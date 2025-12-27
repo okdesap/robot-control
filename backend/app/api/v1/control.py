@@ -25,3 +25,9 @@ def emergency_stop():
     """POST /api/v1/control/stop"""
     controller.execute_command("stop")
     return {"status": "stopped"}
+
+
+@router.get("/health")
+def health():
+    """GET /api/v1/control/health"""
+    return {"status": "ok", **controller.health()}
