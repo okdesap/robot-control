@@ -29,7 +29,7 @@ class TwistCommand:
 class ROS2TurtlesimPublisher:
     """Singleton-ish publisher for /turtle1/cmd_vel."""
 
-    def __init__(self, topic: str = "/turtle1/cmd_vel") -> None:
+    def __init__(self, topic: str) -> None:
         self._topic = topic
         self._lock = threading.RLock()
         self._spin_thread: Optional[threading.Thread] = None
@@ -53,7 +53,9 @@ class ROS2TurtlesimPublisher:
         if not self._rclpy.ok():
             self._rclpy.init(args=None)
 
-        self._node: Node = Node("robot_control_backend")
+        topic_name = self._topic.replace("/", "_").strip("_")
+        self._node: Node = Node(f"backend_publisher_{topic_name}")
+
         self._pub = self._node.create_publisher(self._Twist, self._topic, 10)
 
         self._ensure_spinning()
@@ -104,11 +106,12 @@ class ROS2TurtlesimPublisher:
         self._pub.publish(msg)
 
 
-_publisher: Optional[ROS2TurtlesimPublisher] = None
+_publishers: dict[str, ROS2TurtlesimPublisher] = {}
 
 
 def get_turtlesim_publisher() -> ROS2TurtlesimPublisher:
-    global _publisher
-    if _publisher is None:
-        _publisher = ROS2TurtlesimPublisher(topic="/turtle1/cmd_vel")
-    return _publisher
+    global _publishers
+    if topic_name not in _publishers:
+        print(f"Creating new ROS2TurtlesimPublisher for topic: {topic_name}")
+        _publishers[topic_name] = ROS2TurtlesimPublisher(topic=topic_name)")
+    return _publishers[topic_name]
