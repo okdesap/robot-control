@@ -34,5 +34,12 @@ class RobotController:
         }
 
 
+    def take_photo(self) -> str:
+        print("Taking picture") # Not implemented yet
+        photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="  # Placeholder for image data
+        return photo
+        
+
+
 # Globale Instanz
 controller = RobotController()

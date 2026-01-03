@@ -31,3 +31,13 @@ def emergency_stop():
 def health():
     """GET /api/v1/control/health"""
     return {"status": "ok", **controller.health()}
+
+
+@router.get("/photo")
+def take_photo():
+    """GET /api/v1/control/photo"""
+    picture = controller.take_photo()
+    return {
+        "status": "success", 
+        "photo": picture
+    }

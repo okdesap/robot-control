@@ -2,6 +2,8 @@
 Main FastAPI App - MINIMAL
 """
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from dotenv import load_dotenv
 
 from app.api.v1 import control, stt, tts
@@ -13,6 +15,15 @@ load_dotenv()
 
 app = FastAPI(title="Robot Control Backend")
 
+origins = ["*"] # Allow all origins for now -> Should be changed later on
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = origins,
+    allow_credentials = True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Routers
 app.include_router(control.router, prefix="/api/v1/control", tags=["control"])

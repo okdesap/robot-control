@@ -26,8 +26,8 @@ class TwistCommand:
     duration_s: float
 
 
-class ROS2TurtlesimPublisher:
-    """Singleton-ish publisher for /turtle1/cmd_vel."""
+class ROS2Publisher:
+    """Base class for ROS2 publishers"""
 
     def __init__(self, topic: str) -> None:
         self._topic = topic
@@ -106,12 +106,12 @@ class ROS2TurtlesimPublisher:
         self._pub.publish(msg)
 
 
-_publishers: dict[str, ROS2TurtlesimPublisher] = {}
+_publishers: dict[str, ROS2Publisher] = {}
 
 
-def get_turtlesim_publisher() -> ROS2TurtlesimPublisher:
+def get_publisher(topic_name: str) -> ROS2Publisher:
     global _publishers
     if topic_name not in _publishers:
-        print(f"Creating new ROS2TurtlesimPublisher for topic: {topic_name}")
-        _publishers[topic_name] = ROS2TurtlesimPublisher(topic=topic_name)")
+        print(f"Creating new ROS2Publisher for topic: {topic_name}")
+        _publishers[topic_name] = ROS2Publisher(topic=topic_name)
     return _publishers[topic_name]
