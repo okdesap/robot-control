@@ -84,83 +84,52 @@ Robot Interface  ← Hier beginnt ROS
 
 ## Schnellstart
 
-### 1. Einfacher Test (ohne ROS):
+Es gibt zwei sinnvolle Startarten:
+1) **API testen (ohne ROS2)**: du bekommst HTTP-Antworten und kannst die Web-Pipeline prüfen.
+2) **End-to-End mit turtlesim (mit ROS2)**: du siehst echte Bewegung in der Simulation.
+
+## API (was das Frontend aufruft)
+
+- `POST /api/v1/control/command` → nimmt Textbefehle wie `"forward 2.0"`, `"left 1.5"`, `"right 1.0"`, `"stop"`
+- `POST /api/v1/control/stop` → stoppt sofort
+- `GET /api/v1/control/health` → zeigt, welches Backend aktiv ist (z.B. `TurtlesimRobot`)
+- `GET /api/v1/control/photo` → aktuell nur Platzhalter-Bild (Base64 Data-URL)
+
+Swagger UI zum Testen: http://localhost:8000/docs
+
+## Ausführen & Testen
+
+### 1) Nur API testen (ohne ROS2)
+
+In WSL (oder jeder Python-Umgebung) im Ordner `backend/`:
 ```bash
 cd backend
-python test_backend.py
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -U pip
+python -m pip install -r requirements.txt
+
+export ROBOT_BACKEND=sim
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 2. Backend konfigurieren:
+Test (zweites Terminal):
 ```bash
-# .env Datei anpassen
-ROBOT_BACKEND=sim
+curl -sS http://127.0.0.1:8000/api/v1/control/health
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/command \
+   -H "Content-Type: application/json" \
+   -d '{"command":"forward 2.0"}'
 ```
 
-### 3. Dependencies installieren:
+### 2) Pipeline End-to-End testen (WSL + ROS2 Jazzy, 3 Terminals)
+
+Ziel: **HTTP Request → FastAPI → Controller → ROS2 Publisher → turtlesim bewegt sich**
+
+**Einmalige Vorbereitung (WSL, falls noch nicht da)**
 ```bash
-pip install -r requirements.txt
+sudo apt update
+sudo apt install -y python3-venv python3-pip curl
 ```
-
-### 4. Server starten:
-```bash
-python -m app.main
-```
-
-### 5. API testen:
-Öffne: http://localhost:8000/docs
-
-## API Beispiele
-
-### Roboter steuern:
-```bash
-POST http://localhost:8000/api/v1/control/command
-{
-  "command": "forward 2.0"
-}
-```
-
-### Stop:
-```bash
-POST http://localhost:8000/api/v1/control/stop
-```
-
-## Aktueller Status
-
-- ✅ Grundstruktur steht
-- ✅ Command Parser funktioniert
-- ✅ Controller-Logik implementiert
-- ✅ Interface-System funktioniert
-- ✅ ROS2 Turtlesim Anbindung funktioniert (publisht auf `/turtle1/cmd_vel`)
-- ⏳ TurtleBot Backend (noch Platzhalter)
-- ⏳ STT/TTS Features
-
-## Was geht JETZT schon?
-
-- End-to-End Pipeline: HTTP `POST /api/v1/control/command` → Parser → Controller → `TurtlesimRobot` → ROS2 `/turtle1/cmd_vel`
-- `GET /api/v1/control/health` zeigt, welches Backend aktiv ist
-- Smoke-Test ohne FastAPI: `python test_ros2_turtlesim.py`
-
-Wichtig:
-- ROS2 muss in der Python-Umgebung verfügbar sein (`import rclpy` + `from geometry_msgs.msg import Twist`).
-   Auf Windows ist das oft am einfachsten über **WSL/Ubuntu** mit ROS2.
-
-## Nächste Schritte
-
-1. TurtleBot Backend entwickeln (`ROBOT_BACKEND=real`)
-2. Distanz-Kommandos ergänzen (z.B. `forward 2m` statt Sekunden)
-3. STT/TTS Features hinzufügen
-4. Frontend (Quasar) anbinden
-
-## ROS2 (Turtlesim) Durchgang
-
-Wichtig: Der ROS2-Teil benötigt eine Python-Umgebung, in der `import rclpy` und `from geometry_msgs.msg import Twist` funktioniert.
-Auf Windows ist das oft **die ROS2-eigene Python-Umgebung** (nicht conda).
-
-### Schnelltest für Kommilitonen (WSL/Ubuntu + ROS2 Jazzy)
-
-Voraussetzungen:
-- ROS2 Jazzy ist in WSL/Ubuntu installiert (Ordner `/opt/ros/jazzy` existiert).
-- WSLg ist aktiv (damit das `turtlesim` Fenster erscheint).
 
 **Terminal A (WSL): turtlesim starten**
 ```bash
@@ -168,45 +137,52 @@ source /opt/ros/jazzy/setup.bash
 ros2 run turtlesim turtlesim_node
 ```
 
-**Terminal B (WSL): Backend starten**
+**Terminal B (WSL): Backend starten (mit ROS2 Python sichtbar!)**
 ```bash
 cd /mnt/c/Users/Administratorr/Desktop/robot-control/backend
 source /opt/ros/jazzy/setup.bash
 
-# einmalig (falls noch nicht vorhanden): pip + venv
-sudo apt update
-sudo apt install -y python3-pip python3-venv
-
-# einmalig: venv erstellen (wichtig: ROS2 Python Pakete bleiben sichtbar)
+# venv muss ROS2 Python Pakete sehen:
 python3 -m venv .venv --system-site-packages
 source .venv/bin/activate
+
 python -m pip install -U pip
 python -m pip install -r requirements.txt
 
 export ROBOT_BACKEND=sim
-python -m app.main
+uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-**Command testen**
-- Swagger UI: http://localhost:8000/docs
-- Oder per `curl` in WSL:
+**Terminal C (WSL): Commands schicken**
 ```bash
-curl -X POST http://localhost:8000/api/v1/control/command \
+curl -sS http://127.0.0.1:8000/api/v1/control/health
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/command \
    -H "Content-Type: application/json" \
    -d '{"command":"forward 2.0"}'
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/command \
+   -H "Content-Type: application/json" \
+   -d '{"command":"left 1.5"}'
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/stop
 ```
 
-### Smoke-Test ohne FastAPI
-Wenn du nur ROS2-Publishing testen willst:
-```bash
-cd /mnt/c/Users/Administratorr/Desktop/robot-control/backend
-source /opt/ros/jazzy/setup.bash
-source .venv/bin/activate
-python test_ros2_turtlesim.py
-```
+**Quick Debug (wenn sich nichts bewegt)**
+- Prüfen, ob überhaupt Nachrichten ankommen:
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   ros2 topic echo /turtle1/cmd_vel
+   ```
+- Wenn `address already in use`: es läuft schon ein Server → alten Uvicorn stoppen oder Port ändern (`--port 8001`).
+- Wenn `No module named 'numpy'`: im aktivierten `.venv` `python -m pip install -r requirements.txt` ausführen.
 
-### Debug
-- `GET /api/v1/control/health` zeigt, welches Backend aktiv ist.
+## Nächste Schritte
+
+1. TurtleBot Backend entwickeln (`ROBOT_BACKEND=real`)
+2. Distanz-Kommandos ergänzen (z.B. `forward 2m` statt Sekunden)
+3. STT/TTS Features hinzufügen
+4. Frontend (Quasar) anbinden
 
 ## Warum so modular?
 
@@ -219,51 +195,12 @@ ROBOT_BACKEND=real  # Fertig!
 
 Der Rest bleibt gleich.
 
-## Test-Ergebnisse (06.12.2025)
+## Aktueller Status
 
-### Test 1: Backend-Logik 
-```bash
-cd backend
-python test_backend.py
-```
-**Ergebnis:** Erfolgreich
-- Command Parser funktioniert (`"forward 2.0"` → `{'action': 'forward', 'duration': 2.0}`)
-- Controller ruft korrekt Robot-Funktionen auf
-- Backend-System (Turtlesim) gibt korrekte Ausgaben
-
-### Test 2: FastAPI Server 
-```bash
-python -m app.main
-```
-**Ergebnis:** Erfolgreich
-- Server startet auf `http://localhost:8000`
-- API-Dokumentation verfügbar unter `http://localhost:8000/docs`
-- POST `/api/v1/control/command` funktioniert
-- POST `/api/v1/control/stop` funktioniert
-
-Kurzer Hinweis!
-- Swagger also die Ui die sich öffnet. 
-- Ist eine Art Playground dort können wir die API's Endpoints testen
-- dort wird angezeigt welche Parameter auch zum testen nötig sind
-- zeigt auch Beispiele
-
-Beispiel: 
-1. POST /api/v1/control/command
-2. "Try it out"
-3. Gibst ein: {"command": "forward 2.0"}
-4. "Execute"
-5. Siehst sofort die Antwort!
-
-### Was funktioniert JETZT schon:
-- Vollständige Backend-Struktur  
-- REST API (FastAPI)  
-- Command-Parsing (`"forward 2.0"` → Roboter-Funktion)  
-- Controller-Logik (ohne direkte ROS-Abhängigkeit)  
-- Modulares Backend-System (Turtlesim/TurtleBot)  
-- Swagger UI für API-Tests  
-
-### Was noch fehlt:
-- TurtleBot Implementierung  
-- Speech-to-Text / Text-to-Speech  
-
-**Stand:** Das Backend-Framework ist einsatzbereit; Turtlesim-ROS2 Commands funktionieren in einer ROS2-fähigen Umgebung.
+- ✅ Grundstruktur steht
+- ✅ REST API (FastAPI) steht
+- ✅ Command Parser + Controller (ohne ROS-Abhängigkeit)
+- ✅ Turtlesim Anbindung (publisht auf `/turtle1/cmd_vel`)
+- ✅ TurtleBot Backend ist verdrahtet (publisht auf `/cmd_vel`, muss am echten Bot verifiziert werden)
+- ⏳ STT/TTS Features sind noch Platzhalter
+- ⏳ Foto ist aktuell nur ein Dummy (Base64)
