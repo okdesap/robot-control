@@ -3,15 +3,11 @@ __pycache__/
 *.pyc
 *.pyo
 
-# Virtual Environments
-.venv/
+# Virtual Environment
 venv/
-env/
-
-# Project-specific envs (legacy)
 Turtle/
 
-# Environment variables
+# Environment
 .env
 
 # IDE
@@ -21,3 +17,6 @@ Turtle/
 # OS
 .DS_Store
 Thumbs.db
+
+# Vosk
+vosk-model-small-de-0.15/
