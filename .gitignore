@@ -20,3 +20,8 @@ Thumbs.db
 
 # Vosk
 vosk-model-small-de-0.15/
+
+# Lokale Test-Dateien & Audio
+simulate_mic.py
+*.wav
+*.wav:Zone.Identifier
