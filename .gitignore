@@ -1,0 +1,9 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# ROS / Python
+install/
+build/
+log/
