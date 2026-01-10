@@ -1,17 +1,17 @@
 """
-TTS API - Offline mit Pico (pico2wave)
+TTS API - offline with Pico (pico2wave)
 """
 import subprocess
 import os
 import tempfile
 
 def pico_tts(text: str, lang: str = "de-DE"):
-    # Temporäre WAV-Datei
+    # temporary WAV-file
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         wav_path = tmp.name
 
     try:
-        # pico2wave: Text -> WAV-Datei
+        # pico2wave: text -> WAV-Datei
         subprocess.run(
             [
                 "pico2wave",
@@ -22,13 +22,12 @@ def pico_tts(text: str, lang: str = "de-DE"):
             check=True
         )
 
-        # Abspielen mit aplay (aus dem Paket alsa-utils) oder sox/play
+        # play with aplay (from the alsa-utils package) or sox/play
         subprocess.run(["aplay", wav_path], check=True)
-        # Alternativ, falls du sox/play nutzt:
-        # subprocess.run(["play", wav_path], check=True)
+    
 
     finally:
-        # Datei wieder löschen
+        # delete temporary WAV-file
         if os.path.exists(wav_path):
             os.remove(wav_path)
 
