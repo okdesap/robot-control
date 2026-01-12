@@ -17,10 +17,13 @@ class RobotController:
             stop_fn=self.robot.stop,
             max_queue_size=40,
         )
+        
+        self.command_queue.start()
     
     def enqueue_command(self, command_text: str):
         """Enqueue a command and return its job_id."""
         return self.command_queue.enqueue(command_text)
+    
 
     def emergency_stop(self) -> None:
         """cancel current command and clear the queue."""
@@ -75,6 +78,12 @@ class RobotController:
     def _stop_robot_immediately(self) -> None:
         """Stoppt den Roboter sofort."""
         self.robot.stop()
+    
+    def execute_command(self, command_text: str) -> None:
+        """backwards compatible wrapper.
+        old code expects this to exexute immediately, but now it enqueues the command.
+        """
+        self.enqueue_command(command_text)
 
 
 # Globale Instanz

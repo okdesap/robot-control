@@ -67,7 +67,7 @@ class CommandQueueManager:
         self._status = QueueStatus()
         self._status_lock = threading.RLock()
 
-        self._worker_thread = threading.Thread | None = None
+        self._worker_thread : threading.Thread | None = None
         self._shutdown_event = threading.Event()
         self._cancel_current_event = threading.Event()
 
@@ -117,6 +117,7 @@ class CommandQueueManager:
         )
         #put into queue
         self._queue.put_nowait(queued_cmd)
+        
 
         #update status
         with self._status_lock:
@@ -176,6 +177,7 @@ class CommandQueueManager:
             try:
                 # Wait for the next command
                 queued_cmd = self._queue.get(timeout=0.5)
+                
             except queue.Empty:
                 with self._status_lock:
                     if self._status.current_id is None and self._status.state != "stopped":
@@ -208,6 +210,7 @@ class CommandQueueManager:
 
             finally:
                 self._queue.task_done()
+               
 
             # clear current command info
             with self._status_lock:

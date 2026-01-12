@@ -41,3 +41,8 @@ def take_photo():
         "status": "success", 
         "photo": picture
     }
+
+@router.get("/status")
+def get_status():
+    """GET /api/v1/control/status"""
+    return controller.status()
