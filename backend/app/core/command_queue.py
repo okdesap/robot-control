@@ -23,7 +23,7 @@ from collections.abc import Callable
 @dataclass(frozen=True)
 class QueuedCommand:
     """A command waiting in the queue(or currently executing)."""
-    id: str
+    command_id: str
     command_text: str
     timestamp: float
 
@@ -32,13 +32,13 @@ class QueueStatus:
     state: str = "idle"  # "idle" | "busy" | "stopped"
     queue_length: int = 0
 
-    current_id: str | None = None
+    current_command_id: str | None = None
     current_command: str | None = None
     current_timestamp: float | None = None
 
     processed_count: int = 0
     last_error: str | None = None
-    last_completed_timestamp: float | None = None
+
 
 class CommandQueueManager:
     """
@@ -71,12 +71,15 @@ class CommandQueueManager:
         self._shutdown_event = threading.Event()
         self._cancel_current_event = threading.Event()
 
+    """ lifecycle methods(start/shutdown)"""
+
     def start(self) -> None:
         """Start the background thread if not already running."""
         with self._status_lock:
             if self._worker_thread is not None and self._worker_thread.is_alive():
                 return  # Already running
-
+            
+            #ensure shutdown event is cleared
             self._shutdown_event.clear()
 
             # Start the worker thread
@@ -87,7 +90,7 @@ class CommandQueueManager:
             self._worker_thread.start()
 
     def shutdown(self, timeout_s: float = 2.0) -> None:
-        """Stop the worker thread gracefully.
+        """Stop the worker thread (used at application shutdown).
         Also cancels any running command and clears the queue.
         """
         # First, stop robot motion and cancel current command
@@ -96,7 +99,7 @@ class CommandQueueManager:
         # Signal the worker loop to exit
         self._shutdown_event.set()
 
-        # Wait briefly for the thread to finish
+        # Wait for the thread to finish
         if self._worker_thread:
             self._worker_thread.join(timeout=timeout_s)
 
@@ -104,18 +107,19 @@ class CommandQueueManager:
         with self._status_lock:
             self._status.state = "stopped"
 
+    """ public api methods (enqueue, emergency_stop, get_status) """
+
     def enqueue(self, command_text: str) -> str:
         """Add a new command to the queue.
         Returns the unique command ID.
-        Raises queue.Full if the queue is full.
         """
         cmd_id = str(uuid.uuid4())
         queued_cmd = QueuedCommand(
-            id=cmd_id,
+            command_id=cmd_id,
             command_text=command_text,
             timestamp=time.time()
         )
-        #put into queue
+        #put into queue (may block if full)
         self._queue.put_nowait(queued_cmd)
         
 
@@ -125,11 +129,11 @@ class CommandQueueManager:
             if self._status.state == "stopped":
                 self._status.state = "idle"
 
-        return cmd_id
+        return queued_cmd.command_id
     
     def emergency_stop(self, clear_queue: bool = True) -> None:
-        """Immediately stop the robot and cancel current command.
-        Optionally clear the command queue.
+        """Cancel the current command and optionally clear the queue.
+        also calls the stop_fn to halt the robot immediately.
         """
         # cancel current command
         self._cancel_current_event.set()
@@ -144,20 +148,21 @@ class CommandQueueManager:
         except Exception as e:
             with self._status_lock:
                 self._status.last_error = f"stop_fn failed: {e}"
-   
 
         # Update status
         with self._status_lock:
             self._status.queue_length = self._queue.qsize()
-            if self._status.current_id is None and self._status.state != "stopped":
+            if self._status.current_command_id is None and self._status.state != "stopped":
                 self._status.state = "idle"
     
+
     def get_status(self) -> dict:
         """Return current status as a dictionary."""
         with self._status_lock:
             self._status.queue_length = self._queue.qsize()
             return asdict(self._status)
         
+    """ internal methods """
     def _drain_queue(self) -> None:
         """Remove all pending commands from the queue."""
         while not self._queue.empty():
@@ -180,20 +185,20 @@ class CommandQueueManager:
                 
             except queue.Empty:
                 with self._status_lock:
-                    if self._status.current_id is None and self._status.state != "stopped":
+                    if self._status.current_command_id is None and self._status.state != "stopped":
                         self._status.state = "idle"
                         self._status.queue_length = self._queue.qsize()
-                continue  # Check shutdown_event again
+                continue  
 
             # Update status to busy
             with self._status_lock:
                 self._status.state = "busy"
-                self._status.current_id = queued_cmd.id
+                self._status.current_command_id = queued_cmd.command_id
                 self._status.current_command = queued_cmd.command_text
                 self._status.current_timestamp = time.time()
                 self._status.queue_length = self._queue.qsize()
 
-            # Clear cancel event before executing
+            # fresh cancel event for this command
             self._cancel_current_event.clear()
 
             # Execute the command
@@ -202,7 +207,6 @@ class CommandQueueManager:
     
                 with self._status_lock:
                     self._status.processed_count += 1
-                    self._status.last_completed_timestamp = time.time()
                     self._status.last_error = None
             except Exception as e:
                 with self._status_lock:
@@ -214,7 +218,7 @@ class CommandQueueManager:
 
             # clear current command info
             with self._status_lock:
-                self._status.current_id = None
+                self._status.current_command_id = None
                 self._status.current_command = None
                 self._status.current_timestamp = None
                 self._status.queue_length = self._queue.qsize()

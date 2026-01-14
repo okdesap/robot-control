@@ -16,14 +16,14 @@ class CommandRequest(BaseModel):
 @router.post("/command")
 def execute_command(request: CommandRequest):
     """POST /api/v1/control/command"""
-    controller.execute_command(request.command)
-    return {"status": "success", "command": request.command}
+    command_id = controller.enqueue_command(request.command)
+    return {"status": "accepted", "command_id": command_id, "command": request.command}
 
 
 @router.post("/stop")
 def emergency_stop():
     """POST /api/v1/control/stop"""
-    controller.execute_command("stop")
+    controller.emergency_stop()
     return {"status": "stopped"}
 
 
