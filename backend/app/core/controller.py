@@ -31,6 +31,7 @@ class RobotController:
         """cancel current command and clear the queue."""
         self._queue.emergency_stop(clear_queue=True) 
 
+
     def status(self) -> dict:
         """Get current status of the command queue."""
         return {
@@ -71,11 +72,11 @@ class RobotController:
             return  
         
         if action == "forward":
-            self.robot.move_forward(duration)
+            self.robot.move_forward(duration, cancel_event)
         elif action == "left":
-            self.robot.turn_left(duration)
+            self.robot.turn_left(duration, cancel_event)
         elif action == "right":
-            self.robot.turn_right(duration)
+            self.robot.turn_right(duration, cancel_event)
         elif action == "stop":
             self.robot.stop()
         else:

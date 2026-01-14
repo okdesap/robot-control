@@ -83,17 +83,19 @@ class ROS2Publisher:
                 if self._rclpy.ok():
                     self._rclpy.shutdown()
 
-    def publish_for(self, cmd: TwistCommand) -> None:
+    def publish_for(self, cmd: TwistCommand, cancel_event: threading.Event | None = None) -> None:
         """Publish a Twist for duration_s seconds, then stop."""
+
         msg = self._Twist()
         msg.linear.x = float(cmd.linear_x)
         msg.angular.z = float(cmd.angular_z)
 
-        self._pub.publish(msg)
 
         # Keep sending a bit to be robust against timing.
         end = time.time() + max(0.0, float(cmd.duration_s))
         while time.time() < end:
+            if cancel_event is not None and cancel_event.is_set():
+                break
             self._pub.publish(msg)
             time.sleep(0.05)
 
