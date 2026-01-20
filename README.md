@@ -177,6 +177,73 @@ curl -sS -X POST http://127.0.0.1:8000/api/v1/control/stop
 - Wenn `address already in use`: es läuft schon ein Server → alten Uvicorn stoppen oder Port ändern (`--port 8001`).
 - Wenn `No module named 'numpy'`: im aktivierten `.venv` `python -m pip install -r requirements.txt` ausführen.
 
+### 3) End-to-End mit TurtleBot testen (Linux Rechner mit Verbindung zum Roboter)
+
+Ziel: **HTTP Request → FastAPI → Controller → ROS2 Publisher → TurtleBot bewegt sich**
+
+**Voraussetzungen**
+- Auf dem Linux-Rechner ist ROS2 installiert und kann den TurtleBot erreichen (gleiche ROS2 Domain / gleiches Netzwerk).
+- Der TurtleBot läuft bereits (Bringup/Navigation ist an) und hört auf `/cmd_vel`.
+
+**A) TurtleBot-Seite kurz prüfen (auf dem Linux-Rechner)**
+```bash
+# ROS2 Umgebung laden (Pfad je nach Distro anpassen)
+source /opt/ros/jazzy/setup.bash
+
+ros2 topic list | grep -E "^/cmd_vel$" || true
+ros2 topic info /cmd_vel || true
+```
+
+**B) Repo auschecken & Backend starten**
+```bash
+git clone <REPO-URL>
+cd robot-control/backend
+
+source /opt/ros/jazzy/setup.bash
+
+# venv muss ROS2 Python Pakete sehen (rclpy, geometry_msgs)
+python3 -m venv .venv --system-site-packages
+source .venv/bin/activate
+
+python -m pip install -U pip
+python -m pip install -r requirements.txt
+
+export ROBOT_BACKEND=real
+
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+**C) Test-Requests schicken (vom selben Linux-Rechner oder einem anderen im Netz)**
+```bash
+curl -sS http://127.0.0.1:8000/api/v1/control/health
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/command \
+   -H "Content-Type: application/json" \
+   -d '{"command":"forward 1.0"}'
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/command \
+   -H "Content-Type: application/json" \
+   -d '{"command":"left 0.8"}'
+
+curl -sS -X POST http://127.0.0.1:8000/api/v1/control/stop
+```
+
+**D) Quick Debug (wenn sich nichts bewegt)**
+- Prüfen, ob das Backend überhaupt auf `/cmd_vel` published:
+   ```bash
+   source /opt/ros/jazzy/setup.bash
+   ros2 topic echo /cmd_vel
+   ```
+- Wenn `ROS2NotAvailableError` / `import rclpy` schlägt fehl:
+   - Prüfen, ob du wirklich `source /opt/ros/<distro>/setup.bash` gemacht hast.
+   - venv muss mit `--system-site-packages` erstellt sein.
+- Wenn Topics nicht ankommen (DDS/Netz):
+   ```bash
+   echo "ROS_DOMAIN_ID=$ROS_DOMAIN_ID"
+   echo "ROS_LOCALHOST_ONLY=$ROS_LOCALHOST_ONLY"
+   ```
+   `ROS_DOMAIN_ID` muss zur Roboter-Seite passen; `ROS_LOCALHOST_ONLY` sollte i.d.R. `0` sein.
+
 ## Nächste Schritte
 
 1. TurtleBot Backend entwickeln (`ROBOT_BACKEND=real`)
