@@ -16,7 +16,7 @@ def pico_tts(text: str, lang: str = "de-DE"):
         ], check=True)
 
         # aplay spielt ab (Default-Speaker)
-        subprocess.run(["aplay", wav_path], check=True)
+        subprocess.run(["paplay", wav_path], check=True)
         
     finally:
         if os.path.exists(wav_path):

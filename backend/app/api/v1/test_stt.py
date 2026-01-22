@@ -11,9 +11,9 @@ MODEL_PATH = "/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21"
 model = vosk.Model(MODEL_PATH)
 
 # Create a recognizer instance. 
-# The second argument '48000' tells Vosk to expect audio data 
-# at a sample rate of 48,000 Hz (48 kHz).
-rec = vosk.KaldiRecognizer(model, 48000)  # Deine Hardware-Rate
+# The second argument '16000' tells Vosk to expect audio data 
+# at a sample rate of 16,000 Hz (16 kHz).
+rec = vosk.KaldiRecognizer(model, 16000)  # Deine Hardware-Rate
 
 print("Live-Stream (hw:2,0, 48kHz Stereo)...")
 
@@ -27,8 +27,8 @@ print("Live-Stream (hw:2,0, 48kHz Stereo)...")
 # "-f", "S16_LE": Format is Signed 16-bit Little Endian (standard for audio processing).
 # "-t", "raw": Outputs raw data without a WAV header (important for streaming).
 proc = subprocess.Popen([
-    "arecord", "-D", "hw:2,0", 
-    "-r", "41100", "-c", "2", "-f", "S16_LE", "-t", "raw"
+    "arecord", "-D", "hw:1,0", 
+    "-r", "16000", "-c", "1", "-f", "S16_LE", "-t", "wav"
 ], stdout=subprocess.PIPE, bufsize=0) # Pipe the audio output directly to Python, no buffering.
 
 try:

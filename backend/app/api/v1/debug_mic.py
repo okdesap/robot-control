@@ -20,7 +20,7 @@ import time
 
 
 # Path to your downloaded model (adjust this path!)
-MODEL_PATH = "vosk-model-small-de-0.15" 
+MODEL_PATH = "/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21" 
 
 # Filename for the temporary debug file
 OUTPUT_FILENAME = "debug_test.wav"
