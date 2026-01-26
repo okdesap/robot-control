@@ -4,10 +4,12 @@ Config - Backend Auswahl
 import os
 
 
-ROBOT_BACKEND = os.getenv("ROBOT_BACKEND", "sim")
+
 
 
 def get_robot_backend():
+    ROBOT_BACKEND = os.getenv("ROBOT_BACKEND", "sim")
+    
     """Factory: Gibt richtiges Backend zurück"""
     from app.ros.turtlesim_robot import TurtlesimRobot
     from app.ros.turtlebot_robot import TurtleBotRobot

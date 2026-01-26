@@ -29,8 +29,9 @@ class TwistCommand:
 class ROS2Publisher:
     """Base class for ROS2 publishers"""
 
-    def __init__(self, topic: str) -> None:
+    def __init__(self, topic: str, msg_type) -> None:
         self._topic = topic
+        self._msg_type = msg_type
         self._lock = threading.RLock()
         self._spin_thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -39,7 +40,6 @@ class ROS2Publisher:
         try:
             import rclpy  # type: ignore
             from rclpy.node import Node  # type: ignore
-            from geometry_msgs.msg import Twist  # type: ignore
         except Exception as exc:  # pragma: no cover
             raise ROS2NotAvailableError(
                 "ROS2 Python packages not available. "
@@ -48,7 +48,7 @@ class ROS2Publisher:
             )
 
         self._rclpy = rclpy
-        self._Twist = Twist
+    
 
         if not self._rclpy.ok():
             self._rclpy.init(args=None)
@@ -56,7 +56,7 @@ class ROS2Publisher:
         topic_name = self._topic.replace("/", "_").strip("_")
         self._node: Node = Node(f"backend_publisher_{topic_name}")
 
-        self._pub = self._node.create_publisher(self._Twist, self._topic, 10)
+        self._pub = self._node.create_publisher(self._msg_type, self._topic, 10)
 
         self._ensure_spinning()
 
@@ -83,37 +83,45 @@ class ROS2Publisher:
                 if self._rclpy.ok():
                     self._rclpy.shutdown()
 
-    def publish_for(self, cmd: TwistCommand, cancel_event: threading.Event | None = None) -> None:
-        """Publish a Twist for duration_s seconds, then stop."""
-
-        msg = self._Twist()
-        msg.linear.x = float(cmd.linear_x)
-        msg.angular.z = float(cmd.angular_z)
+    def publish_for(self, msg, duration_s: float, cancel_event: threading.Event | None = None) -> None:
+        """Publish a velocity message for duration_s seconds, then stop."""
+        # twistStamped by every publish new timestamp is set automatically 
+        def _refresh_timestamp(twist_msg):
+            if hasattr(twist_msg, 'header'):
+                twist_msg.header.stamp = self._node.get_clock().now().to_msg()
 
 
         # Keep sending a bit to be robust against timing.
-        end = time.time() + max(0.0, float(cmd.duration_s))
+        end = time.time() + max(0.0, float(duration_s))
         while time.time() < end:
             if cancel_event is not None and cancel_event.is_set():
                 break
+            _refresh_timestamp(msg)
             self._pub.publish(msg)
             time.sleep(0.05)
 
         self.stop()
 
     def stop(self) -> None:
-        msg = self._Twist()
-        msg.linear.x = 0.0
-        msg.angular.z = 0.0
+        msg = self._msg_type()
+        #twistStamped
+        if hasattr(msg, 'twist'):
+            if hasattr(msg, 'header'):
+                msg.header.stamp = self._node.get_clock().now().to_msg()
+            msg.twist.linear.x = 0.0
+            msg.twist.angular.z = 0.0
+        else:
+            msg.linear.x = 0.0
+            msg.angular.z = 0.0
         self._pub.publish(msg)
 
 
-_publishers: dict[str, ROS2Publisher] = {}
+_publishers: dict[tuple[str, object], ROS2Publisher] = {}
 
 
-def get_publisher(topic_name: str) -> ROS2Publisher:
-    global _publishers
-    if topic_name not in _publishers:
-        print(f"Creating new ROS2Publisher for topic: {topic_name}")
-        _publishers[topic_name] = ROS2Publisher(topic=topic_name)
-    return _publishers[topic_name]
+def get_publisher(topic_name: str, msg_type) -> ROS2Publisher:
+    key = (topic_name, msg_type)
+    if key not in _publishers:
+        print(f"Creating new ROS2Publisher for topic: {topic_name} with msg_type: {msg_type}")
+        _publishers[key] = ROS2Publisher(topic=topic_name, msg_type=msg_type)
+    return _publishers[key]
