@@ -3,10 +3,10 @@ Main FastAPI App - MINIMAL
 """
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from dotenv import load_dotenv
 
 from app.api.v1 import control, stt, tts
+
 
 
 # Load backend/.env if present (useful for local dev & WSL)
@@ -15,11 +15,10 @@ load_dotenv()
 
 app = FastAPI(title="Robot Control Backend")
 
-origins = ["*"] # Allow all origins for now -> Should be changed later on
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = origins,
+    allow_origins = ["*"], # Allow all origins for now -> Should be changed later on
     allow_credentials = True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -38,7 +37,14 @@ def root():
         "docs": "/docs"
     }
 
+def start_server():
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    start_server()
