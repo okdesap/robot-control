@@ -5,25 +5,17 @@ Jedes Backend MUSS diese Funktionen implementieren
 from abc import ABC, abstractmethod
 import threading
 
+from app.core.models.command import Command
+
 
 class RobotInterface(ABC):
     
     @abstractmethod
-    def move_forward(self, duration: float, cancel_event: threading.Event | None = None):
-        """Vorwärts fahren"""
-        pass
-    
-    @abstractmethod
-    def turn_left(self, duration: float, cancel_event: threading.Event | None = None):
-        """Links drehen"""
-        pass
-    
-    @abstractmethod
-    def turn_right(self, duration: float, cancel_event: threading.Event | None = None):
-        """Rechts drehen"""
-        pass
+    def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
+        """Execute a high-level command model."""
+        raise NotImplementedError
     
     @abstractmethod
     def stop(self):
         """Stoppen"""
-        pass
+        raise NotImplementedError

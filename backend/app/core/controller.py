@@ -64,23 +64,12 @@ class RobotController:
             return  
         
         cmd = parse_command(command_text)
-        action = cmd["action"]
-        duration = cmd["duration"]
 
         #check again before executing
         if cancel_event.is_set():
-            return  
-        
-        if action == "forward":
-            self.robot.move_forward(duration, cancel_event)
-        elif action == "left":
-            self.robot.turn_left(duration, cancel_event)
-        elif action == "right":
-            self.robot.turn_right(duration, cancel_event)
-        elif action == "stop":
-            self.robot.stop()
-        else:
-            raise ValueError(f"Unknown Action: {action}")
+            return
+
+        self.robot.execute_command(cmd, cancel_event)
     
 
     def _stop_robot_immediately(self) -> None:

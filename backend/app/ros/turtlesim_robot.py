@@ -3,31 +3,51 @@ Turtlesim Backend
 """
 import threading
 from geometry_msgs.msg import Twist
-from app.ros.robot_interface import RobotInterface
-from app.ros.ros2_manager import TwistCommand, get_publisher
+
+from app.core.models.command import (
+    Command,
+    ForwardCommand,
+    StopCommand,
+    TurnLeftCommand,
+    TurnRightCommand,
+)
+from app.ros.ros_hal import RosRobotBase
 
 
-class TurtlesimRobot(RobotInterface):
+class TurtlesimRobot(RosRobotBase):
 
     TOPIC = "/turtle1/cmd_vel"
 
-    def _publish(self, cmd: TwistCommand, cancel_event: threading.Event | None = None):
-        pub = get_publisher(self.TOPIC, Twist)
+    def __init__(self) -> None:
+        super().__init__(self.TOPIC, Twist)
+
+    def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
+        if isinstance(cmd, StopCommand):
+            self.stop()
+            return
 
         msg = Twist()
-        msg.linear.x = float(cmd.linear_x)
-        msg.angular.z = float(cmd.angular_z)
-        pub.publish_for(msg, cmd.duration_s, cancel_event)
-    
-    def move_forward(self, duration: float, cancel_event: threading.Event | None = None):
-        self._publish(TwistCommand(1.0, 0.0, duration), cancel_event)
-    
-    def turn_left(self, duration: float, cancel_event: threading.Event | None = None):
-        self._publish(TwistCommand(0.0, 1.5, duration), cancel_event)
-    
-    def turn_right(self, duration: float, cancel_event: threading.Event | None = None):
-        self._publish(TwistCommand(0.0, -1.5, duration), cancel_event)
-    
+        duration_s = 0.0
+
+        if isinstance(cmd, ForwardCommand):
+            msg.linear.x = float(cmd.velocity)
+            msg.angular.z = 0.0
+            duration_s = cmd.duration_s
+        elif isinstance(cmd, TurnLeftCommand):
+            msg.linear.x = 0.0
+            msg.angular.z = float(cmd.angular_velocity)
+            duration_s = cmd.duration_s
+        elif isinstance(cmd, TurnRightCommand):
+            msg.linear.x = 0.0
+            msg.angular.z = -float(cmd.angular_velocity)
+            duration_s = cmd.duration_s
+        else:
+            raise ValueError(f"Unsupported command: {type(cmd).__name__}")
+
+        self._publish_for(msg, duration_s, cancel_event)
+
     def stop(self):
-        pub = get_publisher(self.TOPIC, Twist)
-        pub.stop()
+        msg = Twist()
+        msg.linear.x = 0.0
+        msg.angular.z = 0.0
+        self._publish(msg)

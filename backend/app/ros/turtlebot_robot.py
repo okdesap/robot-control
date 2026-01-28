@@ -2,37 +2,52 @@
 TurtleBot Backend
 """
 import threading
-from app.ros.robot_interface import RobotInterface
-from app.ros.ros2_manager import TwistCommand, get_publisher
 from geometry_msgs.msg import TwistStamped
 
+from app.core.models.command import (
+    Command,
+    ForwardCommand,
+    StopCommand,
+    TurnLeftCommand,
+    TurnRightCommand,
+)
+from app.ros.ros_hal import RosRobotBase
 
-class TurtleBotRobot(RobotInterface):
+
+class TurtleBotRobot(RosRobotBase):
 
     TOPIC = "/cmd_vel"
 
-    def _publish(self, cmd: TwistCommand, cancel_event: threading.Event | None = None):
-        pub = get_publisher(self.TOPIC, TwistStamped)
+    def __init__(self) -> None:
+        super().__init__(self.TOPIC, TwistStamped)
+
+    def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
+        if isinstance(cmd, StopCommand):
+            self.stop()
+            return
 
         msg = TwistStamped()
-        msg.header.stamp = pub._node.get_clock().now().to_msg()
-        msg.twist.linear.x = float(cmd.linear_x)
-        msg.twist.angular.z = float(cmd.angular_z)
+        duration_s = 0.0
 
-        pub.publish_for(msg, cmd.duration_s, cancel_event)
-    
-    def move_forward(self, duration: float, cancel_event: threading.Event | None = None):
-        print(f"[TurtleBot] Vorwärts {duration}s")
-        self._publish(TwistCommand(linear_x=1.0, angular_z=0.0, duration_s=duration), cancel_event)
-    
-    def turn_left(self, duration: float, cancel_event: threading.Event | None = None):
-        print(f"[TurtleBot] Links {duration}s")
-        self._publish(TwistCommand(linear_x=0.0, angular_z=1.5, duration_s=duration), cancel_event)
-    
-    def turn_right(self, duration: float, cancel_event: threading.Event | None = None):
-        print(f"[TurtleBot] Rechts {duration}s")
-        self._publish(TwistCommand(linear_x=0.0, angular_z=-1.5, duration_s=duration), cancel_event)
-    
+        if isinstance(cmd, ForwardCommand):
+            msg.twist.linear.x = float(cmd.velocity)
+            msg.twist.angular.z = 0.0
+            duration_s = cmd.duration_s
+        elif isinstance(cmd, TurnLeftCommand):
+            msg.twist.linear.x = 0.0
+            msg.twist.angular.z = float(cmd.angular_velocity)
+            duration_s = cmd.duration_s
+        elif isinstance(cmd, TurnRightCommand):
+            msg.twist.linear.x = 0.0
+            msg.twist.angular.z = -float(cmd.angular_velocity)
+            duration_s = cmd.duration_s
+        else:
+            raise ValueError(f"Unsupported command: {type(cmd).__name__}")
+
+        self._publish_for(msg, duration_s, cancel_event)
+
     def stop(self):
-        print("[TurtleBot] Stop")
-        get_publisher(self.TOPIC, TwistStamped).stop()
+        msg = TwistStamped()
+        msg.twist.linear.x = 0.0
+        msg.twist.angular.z = 0.0
+        self._publish(msg)

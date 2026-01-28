@@ -10,20 +10,11 @@ will raise a clear error when used.
 from __future__ import annotations
 
 import threading
-import time
-from dataclasses import dataclass
 from typing import Optional
 
 
 class ROS2NotAvailableError(RuntimeError):
     pass
-
-
-@dataclass(frozen=True)
-class TwistCommand:
-    linear_x: float
-    angular_z: float
-    duration_s: float
 
 
 class ROS2Publisher:
@@ -83,36 +74,10 @@ class ROS2Publisher:
                 if self._rclpy.ok():
                     self._rclpy.shutdown()
 
-    def publish_for(self, msg, duration_s: float, cancel_event: threading.Event | None = None) -> None:
-        """Publish a velocity message for duration_s seconds, then stop."""
-        # twistStamped by every publish new timestamp is set automatically 
-        def _refresh_timestamp(twist_msg):
-            if hasattr(twist_msg, 'header'):
-                twist_msg.header.stamp = self._node.get_clock().now().to_msg()
+    def now(self):
+        return self._node.get_clock().now().to_msg()
 
-
-        # Keep sending a bit to be robust against timing.
-        end = time.time() + max(0.0, float(duration_s))
-        while time.time() < end:
-            if cancel_event is not None and cancel_event.is_set():
-                break
-            _refresh_timestamp(msg)
-            self._pub.publish(msg)
-            time.sleep(0.05)
-
-        self.stop()
-
-    def stop(self) -> None:
-        msg = self._msg_type()
-        #twistStamped
-        if hasattr(msg, 'twist'):
-            if hasattr(msg, 'header'):
-                msg.header.stamp = self._node.get_clock().now().to_msg()
-            msg.twist.linear.x = 0.0
-            msg.twist.angular.z = 0.0
-        else:
-            msg.linear.x = 0.0
-            msg.angular.z = 0.0
+    def publish(self, msg) -> None:
         self._pub.publish(msg)
 
 

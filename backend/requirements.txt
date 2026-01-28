@@ -1,8 +1,6 @@
-# Minimal Dependencies
-#hier kommnen zukünfitig weitere Abhängigkeiten hin
 fastapi
+pydantic
 uvicorn[standard]
 python-dotenv
 numpy
 ollama
-rclpy-intellisense
