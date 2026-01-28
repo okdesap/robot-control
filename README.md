@@ -110,7 +110,7 @@ python -m pip install -U pip
 python -m pip install -r requirements.txt
 
 export ROBOT_BACKEND=sim
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m app.main
 ```
 
 Test (zweites Terminal):
@@ -150,7 +150,7 @@ python -m pip install -U pip
 python -m pip install -r requirements.txt
 
 export ROBOT_BACKEND=sim
-uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m app.main
 ```
 
 **Terminal C (WSL): Commands schicken**
@@ -210,7 +210,7 @@ python -m pip install -r requirements.txt
 
 export ROBOT_BACKEND=real
 
-uvicorn app.main:app --host 0.0.0.0 --port 8000
+python -m app.main
 ```
 
 **C) Test-Requests schicken (vom selben Linux-Rechner oder einem anderen im Netz)**
