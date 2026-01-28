@@ -1,6 +1,4 @@
-"""
-Controller - KEINE ROS-Imports hier!
-"""
+"""Controller (no ROS imports here)."""
 import threading
 
 from app.core.commands import parse_command
@@ -23,12 +21,12 @@ class RobotController:
     """Public methods for controlling the robot and its command queue."""
 
     def enqueue_command(self, command_text: str):
-        """Enqueue a command and return its job_id.
-        this is non-blocking. REST API can return immediately."""
+        """Enqueue a command and return its job ID.
+        This is non-blocking; the REST API can return immediately."""
         return self._queue.enqueue(command_text)
 
     def emergency_stop(self) -> None:
-        """cancel current command and clear the queue."""
+        """Cancel the current command and clear the queue."""
         self._queue.emergency_stop(clear_queue=True) 
 
 
@@ -40,7 +38,7 @@ class RobotController:
         }
     
     def shutdown(self) -> None:
-        """calls this on app shutdown to stop worker thread and robot."""
+        """Called on app shutdown to stop the worker thread and robot."""
         self._queue.shutdown(timeout_s=2.0)
     
     def health(self) -> dict:
@@ -50,22 +48,22 @@ class RobotController:
         }
     
     def take_photo(self) -> str:
-        print("Taking picture") # Not implemented yet
-        photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="  # Placeholder for image data
+        print("Taking picture")  # Not implemented yet
+        photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="  # Placeholder image data
         return photo
     
-    """ internal methods for executing commands and stopping the robot."""
+    """Internal methods for executing commands and stopping the robot."""
 
     def _execute_one_command(self, command_text: str, cancel_event: threading.Event) -> None:
-        """Execute a single command 
-        this runs in the worker thread."""
-        #if a stop has been requested before we start, do nothing
+        """Execute a single command.
+        This runs in the worker thread."""
+        # If a stop has been requested before we start, do nothing.
         if cancel_event.is_set():
             return  
         
         cmd = parse_command(command_text)
 
-        #check again before executing
+        # Check again before executing.
         if cancel_event.is_set():
             return
 
@@ -73,12 +71,12 @@ class RobotController:
     
 
     def _stop_robot_immediately(self) -> None:
-        """Stop the robot immediately
-        for true cancellation of current command, the ROS publisher must cooperate."""
+        """Stop the robot immediately.
+        For true cancellation of current command, the ROS publisher must cooperate."""
         self.robot.stop()
     
 
 
 
-# Globale Instanz
+# Global instance
 controller = RobotController()

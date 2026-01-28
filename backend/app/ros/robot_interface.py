@@ -1,6 +1,5 @@
-"""
-Abstract Robot Interface
-Jedes Backend MUSS diese Funktionen implementieren
+"""Abstract robot interface.
+Each backend must implement these methods.
 """
 from abc import ABC, abstractmethod
 import threading
@@ -17,5 +16,5 @@ class RobotInterface(ABC):
     
     @abstractmethod
     def stop(self):
-        """Stoppen"""
+        """Stop the robot."""
         raise NotImplementedError

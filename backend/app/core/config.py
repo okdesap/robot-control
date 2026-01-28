@@ -1,6 +1,4 @@
-"""
-Config - Backend Auswahl
-"""
+"""Backend configuration and selection."""
 import os
 
 
@@ -10,7 +8,7 @@ import os
 def get_robot_backend():
     ROBOT_BACKEND = os.getenv("ROBOT_BACKEND", "sim")
     
-    """Factory: Gibt richtiges Backend zurück"""
+    """Factory: return the selected backend instance."""
     from app.ros.turtlesim_robot import TurtlesimRobot
     from app.ros.turtlebot_robot import TurtleBotRobot
     
@@ -39,7 +37,7 @@ class _UnavailableRobotBackend(RobotInterface):
 def get_robot_backend():
     ROBOT_BACKEND = os.getenv("ROBOT_BACKEND", "sim")
 
-    """Factory: Gibt richtiges Backend zurück"""
+    """Factory: return the selected backend instance."""
     if ROBOT_BACKEND == "sim":
         try:
             from app.ros.turtlesim_robot import TurtlesimRobot
