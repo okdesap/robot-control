@@ -14,9 +14,12 @@ if __package__ is None or __package__ == "":
     if project_root not in sys.path:
         sys.path.insert(0, project_root)
 
+from app.core.logging_config import setup_logging
+
 from app.api.app import create_api_app
 
 
+setup_logging()
 app = create_api_app()
 
 

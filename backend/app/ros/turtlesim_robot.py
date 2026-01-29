@@ -3,23 +3,36 @@ Turtlesim Backend
 """
 import threading
 from geometry_msgs.msg import Twist
+from turtlesim.msg import Pose
 
 from app.core.models.command import (
     Command,
+    DockCommand,
     ForwardCommand,
+    NavigateToPoseCommand,
     StopCommand,
     TurnLeftCommand,
     TurnRightCommand,
+    UndockCommand,
 )
 from app.ros.ros_hal import RosRobotBase
 
 
 class TurtlesimRobot(RosRobotBase):
 
-    TOPIC = "/turtle1/cmd_vel"
+    CMD_VEL_TOPIC = "/turtle1/cmd_vel"
+    POSE_TOPIC = "/turtle1/pose"
 
     def __init__(self) -> None:
-        super().__init__(self.TOPIC, Twist)
+        super().__init__(self.CMD_VEL_TOPIC, Twist)
+        self._last_pose: Pose | None = None
+        self.register_subscription("pose", self.POSE_TOPIC, Pose, self._on_pose)
+
+    def _on_pose(self, msg: Pose) -> None:
+        self._last_pose = msg
+
+    def get_last_pose(self) -> Pose | None:
+        return self._last_pose
 
     def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
         if isinstance(cmd, StopCommand):
@@ -41,6 +54,12 @@ class TurtlesimRobot(RosRobotBase):
             msg.linear.x = 0.0
             msg.angular.z = -float(cmd.angular_velocity)
             duration_s = cmd.duration_s
+        elif isinstance(cmd, NavigateToPoseCommand):
+            raise ValueError("Navigation is not supported by turtlesim")
+        elif isinstance(cmd, DockCommand):
+            raise ValueError("Docking is not supported by turtlesim")
+        elif isinstance(cmd, UndockCommand):
+            raise ValueError("Undocking is not supported by turtlesim")
         else:
             raise ValueError(f"Unsupported command: {type(cmd).__name__}")
 

@@ -18,6 +18,35 @@ export ROBOT_BACKEND=sim    # sim = turtlesim, real = turtlebot
 python app/main.py
 ```
 
+## UI starten (Quasar)
+
+Im Ordner web-ui/quasar-project:
+```bash
+cd web-ui/quasar-project
+npm install
+npm run dev
+```
+
+Danach im Browser öffnen: http://localhost:9000
+
+## Backend + UI zusammen (kurz)
+
+Terminal A (Backend):
+```bash
+cd backend
+export ROBOT_BACKEND=sim
+python app/main.py
+```
+
+Terminal B (UI):
+```bash
+cd web-ui/quasar-project
+npm install
+npm run dev
+```
+
+Dann im Browser öffnen: http://localhost:9000
+
 ## API
 
 - `POST /api/v1/control/command` Body: `{"command":"forward 2.0"}`
@@ -78,4 +107,8 @@ python app/main.py
 curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 	-H "Content-Type: application/json" \
 	-d '{"command":"forward 1.0"}'
+```
+
+```bash
+curl -s http://127.0.0.1:8000/api/v1/control/health
 ```

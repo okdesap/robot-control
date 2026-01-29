@@ -33,3 +33,21 @@ class TurnLeftCommand(Command):
 class TurnRightCommand(Command):
     angular_velocity: float = 1.5
     duration_s: float = 1.0
+
+
+@dataclass(frozen=True)
+class NavigateToPoseCommand(Command):
+    x: float = 0.0
+    y: float = 0.0
+    yaw_deg: float = 0.0
+    frame_id: str = "map"
+
+
+@dataclass(frozen=True)
+class DockCommand(Command):
+    pass
+
+
+@dataclass(frozen=True)
+class UndockCommand(Command):
+    pass

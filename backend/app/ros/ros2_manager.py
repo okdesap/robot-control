@@ -80,6 +80,9 @@ class ROS2Publisher:
     def publish(self, msg) -> None:
         self._pub.publish(msg)
 
+    def create_subscription(self, topic: str, msg_type, callback, qos: int = 10):
+        return self._node.create_subscription(msg_type, topic, callback, qos)
+
 
 _publishers: dict[tuple[str, object], ROS2Publisher] = {}
 
