@@ -23,3 +23,6 @@ Turtle/
 # OS
 .DS_Store
 Thumbs.db
+
+# Folders to ignore
+web-ui/
