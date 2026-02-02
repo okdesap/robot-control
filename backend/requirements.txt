@@ -6,3 +6,4 @@ python-dotenv
 numpy
 ollama
 rclpy-intellisense
+requests
