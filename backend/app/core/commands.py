@@ -45,6 +45,9 @@ def parse_command(command_text: str):
 
     if action == "forward":
         return ForwardCommand(duration_s=duration)
+    if action == "backward":
+        # Backward is forward with negative velocity
+        return ForwardCommand(velocity=-1.0, duration_s=duration)
     if action == "left":
         return TurnLeftCommand(duration_s=duration)
     if action == "right":

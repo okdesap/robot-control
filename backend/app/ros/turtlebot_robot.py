@@ -30,7 +30,7 @@ class TurtleBotRobot(RosRobotBase):
     MAP_TOPIC = "/map"
     NAV_STATUS_TOPIC = "/navigate_to_pose/_action/status"
 
-    NAV2_ACTIVE_TIMEOUT_S = 15.0
+    NAV2_ACTIVE_TIMEOUT_S = 2.0  # Reduced from 15.0 to fail faster if Nav2 is not available
     NAV2_TASK_TIMEOUT_S = 180.0
 
     def __init__(self) -> None:
@@ -209,6 +209,7 @@ class TurtleBotRobot(RosRobotBase):
             self.stop()
             return
 
+        # For movement commands (forward, turn), publish directly without waiting for Nav2
         msg = self._new_cmd_vel_msg()
         duration_s = 0.0
 
@@ -233,6 +234,7 @@ class TurtleBotRobot(RosRobotBase):
         else:
             raise ValueError(f"Unsupported command: {type(cmd).__name__}")
 
+        # Publish the movement command
         self._publish_for(msg, duration_s, cancel_event)
 
     def stop(self):
@@ -265,17 +267,29 @@ class TurtleBotRobot(RosRobotBase):
         self._wait_task_complete(navigator, cancel_event, task_timeout)
 
     def _dock(self, cancel_event: threading.Event | None = None) -> None:
-        navigator = self._get_navigator()
-        active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
-        task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
-        self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
-        navigator.dock()
-        self._wait_task_complete(navigator, cancel_event, task_timeout)
+        try:
+            navigator = self._get_navigator()
+            active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
+            task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
+            self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
+            navigator.dock()
+            self._wait_task_complete(navigator, cancel_event, task_timeout)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("backend.core.turtlebot")
+            logger.warning("Dock command failed (Nav2 may not be available): %s", str(e))
+            # Don't raise - just log and continue
 
     def _undock(self, cancel_event: threading.Event | None = None) -> None:
-        navigator = self._get_navigator()
-        active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
-        task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
-        self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
-        navigator.undock()
-        self._wait_task_complete(navigator, cancel_event, task_timeout)
+        try:
+            navigator = self._get_navigator()
+            active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
+            task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
+            self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
+            navigator.undock()
+            self._wait_task_complete(navigator, cancel_event, task_timeout)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("backend.core.turtlebot")
+            logger.warning("Undock command failed (Nav2 may not be available): %s", str(e))
+            # Don't raise - just log and continue

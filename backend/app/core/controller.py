@@ -161,13 +161,16 @@ class RobotController:
         if cancel_event.is_set():
             return  
         
-        cmd = parse_command(command_text)
+        try:
+            cmd = parse_command(command_text)
 
-        # Check again before executing.
-        if cancel_event.is_set():
-            return
+            # Check again before executing.
+            if cancel_event.is_set():
+                return
 
-        self.robot.execute_command(cmd, cancel_event)
+            self.robot.execute_command(cmd, cancel_event)
+        except Exception as e:
+            logger.error("Error executing command '%s': %s", command_text, str(e), exc_info=True)
     
 
     def _stop_robot_immediately(self) -> None:

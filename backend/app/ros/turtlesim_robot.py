@@ -57,9 +57,11 @@ class TurtlesimRobot(RosRobotBase):
         elif isinstance(cmd, NavigateToPoseCommand):
             raise ValueError("Navigation is not supported by turtlesim")
         elif isinstance(cmd, DockCommand):
-            raise ValueError("Docking is not supported by turtlesim")
+            # Docking is not physically possible in turtlesim, just log it
+            return
         elif isinstance(cmd, UndockCommand):
-            raise ValueError("Undocking is not supported by turtlesim")
+            # Undocking is not physically possible in turtlesim, just log it
+            return
         else:
             raise ValueError(f"Unsupported command: {type(cmd).__name__}")
 
