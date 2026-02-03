@@ -84,3 +84,9 @@ def get_battery():
 def get_camera():
     """GET /api/v1/control/camera"""
     return controller.get_camera_info()
+
+
+@router.get("/dock_status")
+def get_dock_status():
+    """GET /api/v1/control/dock_status"""
+    return controller.get_dock_status()

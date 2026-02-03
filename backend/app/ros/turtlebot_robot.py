@@ -109,6 +109,12 @@ class TurtleBotRobot(RosRobotBase):
         except Exception:
             return default
 
+    def _env_bool(self, name: str, default: bool = False) -> bool:
+        raw = os.getenv(name)
+        if raw is None:
+            return default
+        return raw.strip().lower() in {"1", "true", "yes", "on"}
+
     def _wait_for_nav2_active(
         self,
         navigator,
@@ -204,6 +210,30 @@ class TurtleBotRobot(RosRobotBase):
     def get_last_nav_status(self):
         return self._last_nav_status
 
+    def get_docking_status(self) -> dict:
+        try:
+            navigator = self._get_navigator()
+        except Exception as exc:
+            return {"available": False, "reason": str(exc)}
+
+        missing = [name for name in ("dock", "undock") if not hasattr(navigator, name)]
+        if missing:
+            return {"available": False, "reason": f"Navigator missing: {', '.join(missing)}"}
+
+        nav2_required = self._env_bool("DOCK_REQUIRE_NAV2", False)
+        active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
+        quick_timeout = min(2.0, float(active_timeout))
+
+        try:
+            self._wait_for_nav2_active(navigator, None, quick_timeout)
+            nav2_active = True
+        except Exception as exc:
+            nav2_active = False
+            if nav2_required:
+                return {"available": False, "reason": f"Nav2 not active: {exc}"}
+
+        return {"available": True, "nav2_active": nav2_active}
+
     def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
         if isinstance(cmd, StopCommand):
             self.stop()
@@ -271,7 +301,8 @@ class TurtleBotRobot(RosRobotBase):
             navigator = self._get_navigator()
             active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
             task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
-            self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
+            if self._env_bool("DOCK_REQUIRE_NAV2", False):
+                self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
             navigator.dock()
             self._wait_task_complete(navigator, cancel_event, task_timeout)
         except Exception as e:
@@ -285,7 +316,8 @@ class TurtleBotRobot(RosRobotBase):
             navigator = self._get_navigator()
             active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
             task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
-            self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
+            if self._env_bool("DOCK_REQUIRE_NAV2", False):
+                self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
             navigator.undock()
             self._wait_task_complete(navigator, cancel_event, task_timeout)
         except Exception as e:

@@ -150,6 +150,16 @@ class RobotController:
             "width": getattr(msg, "width", None),
             "encoding": getattr(msg, "encoding", None),
         }
+
+    def get_dock_status(self) -> dict:
+        get_docking_status = getattr(self.robot, "get_docking_status", None)
+        if not callable(get_docking_status):
+            return {"available": False, "reason": "Docking not supported by this backend"}
+
+        try:
+            return get_docking_status()
+        except Exception as exc:
+            return {"available": False, "reason": str(exc)}
     
     """Internal methods for executing commands and stopping the robot."""
 
