@@ -1,93 +1,215 @@
-# robot-control
+# Robot Control System
 
+Backend zur Steuerung von ROS2-Robotern über eine Web-API.
 
+## Start (Windows PowerShell)
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://projectbase.medien.hs-duesseldorf.de/dsai/tftb/take-control/robot-control.git
-git branch -M main
-git push -uf origin main
+```powershell
+cd backend
+$env:ROBOT_BACKEND="sim"   # sim = turtlesim, real = turtlebot
+python app/main.py
 ```
 
-## Integrate with your tools
+Hinweis (TurtleBot cmd_vel):
+- Standard ist `CMD_VEL_TOPIC=/cmd_vel` und `CMD_VEL_MSG_TYPE=Twist`.
+- Falls dein Robot auf `TwistStamped` hört, setze zusätzlich:
+```powershell
+$env:CMD_VEL_MSG_TYPE="TwistStamped"
+```
 
-- [ ] [Set up project integrations](https://projectbase.medien.hs-duesseldorf.de/dsai/tftb/take-control/robot-control/-/settings/integrations)
+## Start (Linux/WSL)
 
-## Collaborate with your team
+```bash
+cd backend
+export ROBOT_BACKEND=sim    # sim = turtlesim, real = turtlebot
+python app/main.py
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Start (Linux – TurtleBot Real, empfohlen)
 
-## Test and Deploy
+Nutze das Script, damit ROS2‑Umgebung + venv automatisch geladen werden:
 
-Use the built-in continuous integration in GitLab.
+```bash
+./backend/run_backend.sh
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+Wichtige Umgebungsvariablen (optional):
 
-***
+```bash
+# Command Velocity Typ (TurtleBot4 nutzt i.d.R. TwistStamped)
+export CMD_VEL_MSG_TYPE=TwistStamped
 
-# Editing this README
+# Kamera-Topics (Standard + OAKD Preview)
+export CAMERA_TOPIC=/camera/image_raw
+export OAKD_CAMERA_TOPIC=/oakd/rgb/preview/image_raw
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+# Docking ohne Nav2 erzwingen (Standard: aus)
+export DOCK_REQUIRE_NAV2=0
+```
 
-## Suggestions for a good README
+## UI starten (Quasar)
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Im Ordner web-ui/quasar-project:
+```bash
+cd web-ui/quasar-project
+npm install
+npm run dev
+```
 
-## Name
-Choose a self-explaining name for your project.
+Danach im Browser öffnen: http://localhost:9000
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+## Backend + UI zusammen (kurz)
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Terminal A (Backend):
+```bash
+cd backend
+export ROBOT_BACKEND=sim
+python app/main.py
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Terminal B (UI):
+```bash
+cd web-ui/quasar-project
+npm install
+npm run dev
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+Dann im Browser öffnen: http://localhost:9000
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+## API
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+- `POST /api/v1/control/command` Body: `{"command":"forward 2.0"}`
+- `POST /api/v1/control/stop`
+- `GET /api/v1/control/health`
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Swagger UI: http://localhost:8000/docs
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Turtlesim testen (ROS2 muss laufen)
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+1) ROS2 turtlesim starten:
+```bash
+ros2 run turtlesim turtlesim_node
+```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+2) Backend starten (sim):
+```bash
+cd backend
+export ROBOT_BACKEND=sim
+python app/main.py
+```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+3) Kommando senden:
 
-## License
-For open source projects, say how it is licensed.
+Windows PowerShell (empfohlen):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" `
+  -ContentType "application/json" `
+  -Body '{"command":"forward 2.0"}'
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Linux/WSL/macOS:
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/control/command \
+	-H "Content-Type: application/json" \
+	-d '{"command":"forward 2.0"}'
+```
+
+Mehrere Kommandos schnell hintereinander (Queue):
+
+Windows PowerShell (Beispiel):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"forward 2"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"left 1"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"forward 1"}'
+```
+
+Linux/WSL/macOS:
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/control/command \
+	-H "Content-Type: application/json" \
+	-d '{"command":"forward 2"}'
+
+curl -X POST http://127.0.0.1:8000/api/v1/control/command \
+	-H "Content-Type: application/json" \
+	-d '{"command":"left 1"}'
+
+curl -X POST http://127.0.0.1:8000/api/v1/control/command \
+	-H "Content-Type: application/json" \
+	-d '{"command":"forward 1"}'
+```
+
+## TurtleBot testen (Robot muss laufen)
+
+1) TurtleBot ist online und hört auf `/cmd_vel`.
+
+Debug (auf dem Robot/ROS Rechner):
+```bash
+ros2 topic info /cmd_vel
+ros2 topic list | grep cmd_vel
+```
+Wenn `ros2 topic info /cmd_vel` als Typ **TwistStamped** zeigt, starte das Backend mit:
+```powershell
+$env:ROBOT_BACKEND="real"
+$env:CMD_VEL_MSG_TYPE="TwistStamped"
+python app/main.py
+```
+
+2) Backend starten (real):
+```bash
+./backend/run_backend.sh
+```
+
+3) Kommando senden:
+
+Windows PowerShell (empfohlen):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" `
+  -ContentType "application/json" `
+  -Body '{"command":"forward 1.0"}'
+```
+
+Linux/WSL/macOS:
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/control/command \
+	-H "Content-Type: application/json" \
+	-d '{"command":"forward 1.0"}'
+```
+
+```bash
+curl -s http://127.0.0.1:8000/api/v1/control/health
+```
+
+## Docking / Undocking (TurtleBot)
+
+Docking nutzt Action‑Server `/dock` und `/undock`.
+Status prüfen:
+
+```bash
+curl -s http://127.0.0.1:8000/api/v1/control/dock_status
+```
+
+Wenn `available=true`, können die UI‑Buttons „Dock“/„Undock“ verwendet werden.
+
+Hinweis: Nav2 ist **nicht** zwingend erforderlich (DOCK_REQUIRE_NAV2=0). Falls du Nav2 erzwingen möchtest, setze:
+
+```bash
+export DOCK_REQUIRE_NAV2=1
+```
+
+## Kamera / Foto
+
+Die Foto‑Funktion nutzt ROS2‑Images. Standard‑Topics:
+
+```bash
+/camera/image_raw
+/oakd/rgb/preview/image_raw
+```
+
+Falls dein Robot andere Topics verwendet, setze:
+
+```bash
+export CAMERA_TOPIC=/dein/camera/topic
+export OAKD_CAMERA_TOPIC=/dein/oakd/topic
+```
+
+Nach „FOTO MACHEN“ wird ein PNG als base64 geliefert und direkt in der UI angezeigt.
