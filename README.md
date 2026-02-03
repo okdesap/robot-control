@@ -10,6 +10,13 @@ $env:ROBOT_BACKEND="sim"   # sim = turtlesim, real = turtlebot
 python app/main.py
 ```
 
+Hinweis (TurtleBot cmd_vel):
+- Standard ist `CMD_VEL_TOPIC=/cmd_vel` und `CMD_VEL_MSG_TYPE=Twist`.
+- Falls dein Robot auf `TwistStamped` hört, setze zusätzlich:
+```powershell
+$env:CMD_VEL_MSG_TYPE="TwistStamped"
+```
+
 ## Start (Linux/WSL)
 
 ```bash
@@ -70,6 +77,15 @@ python app/main.py
 ```
 
 3) Kommando senden:
+
+Windows PowerShell (empfohlen):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" `
+  -ContentType "application/json" `
+  -Body '{"command":"forward 2.0"}'
+```
+
+Linux/WSL/macOS:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 	-H "Content-Type: application/json" \
@@ -77,6 +93,15 @@ curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 ```
 
 Mehrere Kommandos schnell hintereinander (Queue):
+
+Windows PowerShell (Beispiel):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"forward 2"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"left 1"}'
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"forward 1"}'
+```
+
+Linux/WSL/macOS:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 	-H "Content-Type: application/json" \
@@ -95,6 +120,18 @@ curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 
 1) TurtleBot ist online und hört auf `/cmd_vel`.
 
+Debug (auf dem Robot/ROS Rechner):
+```bash
+ros2 topic info /cmd_vel
+ros2 topic list | grep cmd_vel
+```
+Wenn `ros2 topic info /cmd_vel` als Typ **TwistStamped** zeigt, starte das Backend mit:
+```powershell
+$env:ROBOT_BACKEND="real"
+$env:CMD_VEL_MSG_TYPE="TwistStamped"
+python app/main.py
+```
+
 2) Backend starten (real):
 ```bash
 cd backend
@@ -103,6 +140,15 @@ python app/main.py
 ```
 
 3) Kommando senden:
+
+Windows PowerShell (empfohlen):
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" `
+  -ContentType "application/json" `
+  -Body '{"command":"forward 1.0"}'
+```
+
+Linux/WSL/macOS:
 ```bash
 curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 	-H "Content-Type: application/json" \
