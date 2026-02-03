@@ -67,6 +67,13 @@ class RobotController:
     
     def take_photo(self) -> str:
         logger.debug("take_photo called")
+        get_photo = getattr(self.robot, "get_last_image_base64", None)
+        if callable(get_photo):
+            try:
+                return get_photo()
+            except Exception as exc:
+                logger.warning("take_photo failed, returning placeholder: %s", exc)
+
         photo = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII="  # Placeholder image data
         return photo
 

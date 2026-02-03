@@ -1,12 +1,16 @@
 """
 TurtleBot Backend
 """
+import base64
+import io
 import os
 import threading
 import time
 from typing import Any
 
 from geometry_msgs.msg import Twist
+import numpy as np
+from PIL import Image
 
 from app.core.models.command import (
     Command,
@@ -27,6 +31,7 @@ class TurtleBotRobot(RosRobotBase):
     ODOM_TOPIC = "/odom"
     BATTERY_TOPIC = "/battery_state"
     CAMERA_TOPIC = "/camera/image_raw"
+    OAKD_CAMERA_TOPIC = "/oakd/rgb/preview/image_raw"
     MAP_TOPIC = "/map"
     NAV_STATUS_TOPIC = "/navigate_to_pose/_action/status"
 
@@ -68,9 +73,13 @@ class TurtleBotRobot(RosRobotBase):
         except Exception:
             pass
 
+        camera_topic = os.getenv("CAMERA_TOPIC", self.CAMERA_TOPIC)
+        oakd_topic = os.getenv("OAKD_CAMERA_TOPIC", self.OAKD_CAMERA_TOPIC)
         try:
             from sensor_msgs.msg import Image
-            self.register_subscription("camera", self.CAMERA_TOPIC, Image, self._on_image)
+            self.register_subscription("camera", camera_topic, Image, self._on_image)
+            if oakd_topic and oakd_topic != camera_topic:
+                self.register_subscription("camera_oakd", oakd_topic, Image, self._on_image)
         except Exception:
             pass
 
@@ -203,6 +212,40 @@ class TurtleBotRobot(RosRobotBase):
 
     def get_last_image(self):
         return self._last_image
+
+    def get_last_image_base64(self) -> str:
+        msg = self._last_image
+        if msg is None:
+            raise RuntimeError("No image received yet")
+
+        height = int(getattr(msg, "height", 0) or 0)
+        width = int(getattr(msg, "width", 0) or 0)
+        encoding = (getattr(msg, "encoding", "") or "").lower()
+        data = getattr(msg, "data", b"") or b""
+
+        if height <= 0 or width <= 0 or not data:
+            raise RuntimeError("Invalid image data")
+
+        if encoding in {"rgb8", "bgr8"}:
+            arr = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 3))
+            if encoding == "bgr8":
+                arr = arr[:, :, ::-1]
+            img = Image.fromarray(arr, mode="RGB")
+        elif encoding in {"rgba8", "bgra8"}:
+            arr = np.frombuffer(data, dtype=np.uint8).reshape((height, width, 4))
+            if encoding == "bgra8":
+                arr = arr[:, :, [2, 1, 0, 3]]
+            img = Image.fromarray(arr, mode="RGBA").convert("RGB")
+        elif encoding in {"mono8", "8uc1"}:
+            arr = np.frombuffer(data, dtype=np.uint8).reshape((height, width))
+            img = Image.fromarray(arr, mode="L")
+        else:
+            raise RuntimeError(f"Unsupported image encoding: {encoding}")
+
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        return f"data:image/png;base64,{b64}"
 
     def get_last_map(self):
         return self._last_map
