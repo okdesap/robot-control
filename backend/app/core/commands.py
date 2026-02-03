@@ -42,15 +42,24 @@ def parse_command(command_text: str):
         return NavigateToPoseCommand(x=x, y=y, yaw_deg=yaw)
     
     duration = float(parts[1]) if len(parts) > 1 else 1.0
+    speed = float(parts[2]) if len(parts) > 2 else None
 
     if action == "forward":
+        if speed is not None:
+            return ForwardCommand(velocity=speed, duration_s=duration)
         return ForwardCommand(duration_s=duration)
     if action == "backward":
         # Backward is forward with negative velocity
+        if speed is not None:
+            return ForwardCommand(velocity=-abs(speed), duration_s=duration)
         return ForwardCommand(velocity=-1.0, duration_s=duration)
     if action == "left":
+        if speed is not None:
+            return TurnLeftCommand(angular_velocity=abs(speed), duration_s=duration)
         return TurnLeftCommand(duration_s=duration)
     if action == "right":
+        if speed is not None:
+            return TurnRightCommand(angular_velocity=abs(speed), duration_s=duration)
         return TurnRightCommand(duration_s=duration)
 
     raise ValueError(f"Unknown Action: {action}")
