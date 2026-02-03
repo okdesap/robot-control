@@ -35,10 +35,10 @@ class TurtleBotRobot(RosRobotBase):
 
     def __init__(self) -> None:
         cmd_vel_topic = os.getenv("CMD_VEL_TOPIC", self.CMD_VEL_TOPIC)
-        cmd_vel_type = (os.getenv("CMD_VEL_MSG_TYPE", "Twist") or "Twist").strip()
+        cmd_vel_type = (os.getenv("CMD_VEL_MSG_TYPE", "TwistStamped") or "TwistStamped").strip()
 
         # Important: ROS2 requires publisher/subscriber message types to match exactly.
-        # Some setups use geometry_msgs/Twist on /cmd_vel, others use TwistStamped.
+        # TurtleBot4 uses TwistStamped on /cmd_vel with BEST_EFFORT QoS.
         msg_type: Any
         if cmd_vel_type.lower() in {"twiststamped", "stamped"}:
             from geometry_msgs.msg import TwistStamped  # type: ignore

@@ -31,6 +31,7 @@ class ROS2Publisher:
         try:
             import rclpy  # type: ignore
             from rclpy.node import Node  # type: ignore
+            from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy  # type: ignore
         except Exception as exc:  # pragma: no cover
             raise ROS2NotAvailableError(
                 "ROS2 Python packages not available. "
@@ -47,7 +48,14 @@ class ROS2Publisher:
         topic_name = self._topic.replace("/", "_").strip("_")
         self._node: Node = Node(f"backend_publisher_{topic_name}")
 
-        self._pub = self._node.create_publisher(self._msg_type, self._topic, 10)
+        # Use BEST_EFFORT QoS to match TurtleBot's subscriber
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            durability=DurabilityPolicy.VOLATILE,
+            depth=10
+        )
+
+        self._pub = self._node.create_publisher(self._msg_type, self._topic, qos_profile)
 
         self._ensure_spinning()
 
