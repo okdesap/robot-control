@@ -32,6 +32,7 @@ class ROS2Publisher:
             import rclpy  # type: ignore
             from rclpy.node import Node  # type: ignore
             from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy  # type: ignore
+            from rclpy.executors import SingleThreadedExecutor  # type: ignore
         except Exception as exc:  # pragma: no cover
             raise ROS2NotAvailableError(
                 "ROS2 Python packages not available. "
@@ -47,6 +48,8 @@ class ROS2Publisher:
 
         topic_name = self._topic.replace("/", "_").strip("_")
         self._node: Node = Node(f"backend_publisher_{topic_name}")
+        self._executor = SingleThreadedExecutor()
+        self._executor.add_node(self._node)
 
         # Use BEST_EFFORT QoS to match TurtleBot's subscriber
         qos_profile = QoSProfile(
@@ -68,7 +71,7 @@ class ROS2Publisher:
 
             def _spin() -> None:
                 while not self._stop_event.is_set() and self._rclpy.ok():
-                    self._rclpy.spin_once(self._node, timeout_sec=0.1)
+                    self._executor.spin_once(timeout_sec=0.1)
 
             self._spin_thread = threading.Thread(target=_spin, name="ros2-spin", daemon=True)
             self._spin_thread.start()
@@ -77,6 +80,7 @@ class ROS2Publisher:
         with self._lock:
             self._stop_event.set()
             try:
+                self._executor.remove_node(self._node)
                 self._node.destroy_node()
             finally:
                 if self._rclpy.ok():

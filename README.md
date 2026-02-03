@@ -25,6 +25,28 @@ export ROBOT_BACKEND=sim    # sim = turtlesim, real = turtlebot
 python app/main.py
 ```
 
+## Start (Linux – TurtleBot Real, empfohlen)
+
+Nutze das Script, damit ROS2‑Umgebung + venv automatisch geladen werden:
+
+```bash
+./backend/run_backend.sh
+```
+
+Wichtige Umgebungsvariablen (optional):
+
+```bash
+# Command Velocity Typ (TurtleBot4 nutzt i.d.R. TwistStamped)
+export CMD_VEL_MSG_TYPE=TwistStamped
+
+# Kamera-Topics (Standard + OAKD Preview)
+export CAMERA_TOPIC=/camera/image_raw
+export OAKD_CAMERA_TOPIC=/oakd/rgb/preview/image_raw
+
+# Docking ohne Nav2 erzwingen (Standard: aus)
+export DOCK_REQUIRE_NAV2=0
+```
+
 ## UI starten (Quasar)
 
 Im Ordner web-ui/quasar-project:
@@ -134,9 +156,7 @@ python app/main.py
 
 2) Backend starten (real):
 ```bash
-cd backend
-export ROBOT_BACKEND=real
-python app/main.py
+./backend/run_backend.sh
 ```
 
 3) Kommando senden:
@@ -158,3 +178,38 @@ curl -X POST http://127.0.0.1:8000/api/v1/control/command \
 ```bash
 curl -s http://127.0.0.1:8000/api/v1/control/health
 ```
+
+## Docking / Undocking (TurtleBot)
+
+Docking nutzt Action‑Server `/dock` und `/undock`.
+Status prüfen:
+
+```bash
+curl -s http://127.0.0.1:8000/api/v1/control/dock_status
+```
+
+Wenn `available=true`, können die UI‑Buttons „Dock“/„Undock“ verwendet werden.
+
+Hinweis: Nav2 ist **nicht** zwingend erforderlich (DOCK_REQUIRE_NAV2=0). Falls du Nav2 erzwingen möchtest, setze:
+
+```bash
+export DOCK_REQUIRE_NAV2=1
+```
+
+## Kamera / Foto
+
+Die Foto‑Funktion nutzt ROS2‑Images. Standard‑Topics:
+
+```bash
+/camera/image_raw
+/oakd/rgb/preview/image_raw
+```
+
+Falls dein Robot andere Topics verwendet, setze:
+
+```bash
+export CAMERA_TOPIC=/dein/camera/topic
+export OAKD_CAMERA_TOPIC=/dein/oakd/topic
+```
+
+Nach „FOTO MACHEN“ wird ein PNG als base64 geliefert und direkt in der UI angezeigt.
