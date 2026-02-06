@@ -65,6 +65,10 @@ class ROS2Publisher:
         reliability_env = (os.getenv("CMD_VEL_RELIABILITY", "best_effort") or "best_effort").lower()
         durability_env = (os.getenv("CMD_VEL_DURABILITY", "volatile") or "volatile").lower()
         depth_env = int(os.getenv("CMD_VEL_DEPTH", "10") or "10")
+   
+        robot_backend = os.getenv("ROBOT_BACKEND", "sim").lower()
+        if robot_backend == "sim":
+            reliability_env = "reliable"
 
         rel_map = {
             "best_effort": ReliabilityPolicy.BEST_EFFORT,
