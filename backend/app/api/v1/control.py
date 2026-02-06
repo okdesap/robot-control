@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from pydantic import BaseModel
 from app.core.controller import controller
+from app.api.v1.intent_parser import parse_intent
 
 
 router = APIRouter()

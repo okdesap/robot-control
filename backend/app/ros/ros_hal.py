@@ -1,12 +1,17 @@
 """ROS HAL base classes to keep ROS specifics out of core."""
 from __future__ import annotations
 
+import logging
+import os
 import threading
 import time
 from abc import ABC, abstractmethod
 
 from app.ros.robot_interface import RobotInterface
 from app.ros.ros2_manager import ROS2Publisher, get_publisher
+
+
+logger = logging.getLogger("backend.ros.ros_hal")
 
 
 class RosRobotBase(RobotInterface, ABC):
@@ -28,16 +33,59 @@ class RosRobotBase(RobotInterface, ABC):
         publisher = self._publishers[self._default_key]
         self._subscriptions[key] = publisher.create_subscription(topic, msg_type, callback, qos)
 
+    def shutdown(self) -> None:
+        # Cleanly stop ROS2 background threads/executors.
+        for pub in list(self._publishers.values()):
+            try:
+                pub.shutdown()
+            except Exception:
+                pass
+
     def _publisher(self, key: str | None = None) -> ROS2Publisher:
         return self._publishers[key or self._default_key]
 
     def _refresh_timestamp(self, msg, key: str | None = None) -> None:
-        if hasattr(msg, "header"):
+        if not hasattr(msg, "header"):
+            return
+
+        # Some robots/nodes expect TwistStamped headers to be left at 0 (stamp unset)
+        # while others expect current time. Make this configurable.
+        stamp_mode = (os.getenv("CMD_VEL_STAMP_MODE", "preserve") or "preserve").strip().lower()
+        # preserve: do nothing if a stamp exists
+        # now: set stamp to current node time
+        # zero: force stamp = 0
+        if stamp_mode == "now":
             msg.header.stamp = self._publisher(key).now()
+        elif stamp_mode == "zero":
+            try:
+                msg.header.stamp.sec = 0
+                msg.header.stamp.nanosec = 0
+            except Exception:
+                # Fallback: if stamp is not mutable, overwrite with a zero time msg
+                from builtin_interfaces.msg import Time  # type: ignore
+                msg.header.stamp = Time(sec=0, nanosec=0)
+
+        # Optionally set a frame_id (some stacks prefer e.g. base_link)
+        frame_id = os.getenv("CMD_VEL_FRAME_ID")
+        if frame_id is not None and hasattr(msg.header, "frame_id"):
+            msg.header.frame_id = str(frame_id)
 
     def _publish(self, msg, key: str | None = None) -> None:
         self._refresh_timestamp(msg, key)
         self._publisher(key).publish(msg)
+
+        if (os.getenv("CMD_VEL_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}) and (key is None or key == self._default_key):
+            try:
+                topic = getattr(self._publisher(key), "_topic", "<topic>")
+                if hasattr(msg, "twist"):
+                    lin_x = float(getattr(msg.twist.linear, "x", 0.0))
+                    ang_z = float(getattr(msg.twist.angular, "z", 0.0))
+                else:
+                    lin_x = float(getattr(msg.linear, "x", 0.0))
+                    ang_z = float(getattr(msg.angular, "z", 0.0))
+                logger.info("Published cmd_vel to %s: linear.x=%.3f angular.z=%.3f", topic, lin_x, ang_z)
+            except Exception:
+                pass
 
     def _publish_for(
         self,

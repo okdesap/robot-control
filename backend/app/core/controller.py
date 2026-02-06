@@ -57,6 +57,14 @@ class RobotController:
         if self._state_thread:
             self._state_thread.join(timeout=1.0)
         self._queue.shutdown(timeout_s=2.0)
+
+        # If the backend is ROS2-based, stop background spin threads cleanly.
+        shutdown_robot = getattr(self.robot, "shutdown", None)
+        if callable(shutdown_robot):
+            try:
+                shutdown_robot()
+            except Exception as exc:
+                logger.warning("robot.shutdown failed: %s", exc)
     
     def health(self) -> dict:
         """Quick health info for debugging."""

@@ -1,66 +1,85 @@
-import json
-import subprocess
-import vosk
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
 from app.api.v1.intent_parser import parse_intent
+from app.core.controller import controller
 
 
-# Path to the German language model directory. 
-# This folder contains the neural network data for speech recognition.
-MODEL_PATH = "/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21"
+router = APIRouter()
 
-# Initialize the Vosk model using the path defined above.
-# This loads the heavy data into RAM.
-model = vosk.Model(MODEL_PATH)
 
-# Create a recognizer instance. 
-# The second argument '16000' tells Vosk to expect audio data 
-# at a sample rate of 16,000 Hz (16 kHz).
-rec = vosk.KaldiRecognizer(model, 16000)  # Deine Hardware-Rate
+class STTTextRequest(BaseModel):
+    text: str
 
-print("Live-Stream (hw:3,0, 16kHz Mono)...")
 
-# Open a subprocess to run the Linux command-line tool 'arecord'.
-# This captures audio directly from the hardware driver (ALSA).
-# Arguments breakdown:
-# "arecord": The Linux audio recorder tool.
-# "-D", "hw:2,0": Selects the specific hardware device (Card 2, Device 0).
-# "-r", "41100": Sets recording sample rate to 41,100 Hz. (WARNING: Mismatch with Vosk's 48000).
-# "-c", "2": Records in Stereo (2 channels).
-# "-f", "S16_LE": Format is Signed 16-bit Little Endian (standard for audio processing).
-# "-t", "raw": Outputs raw data without a WAV header (important for streaming).
-proc = subprocess.Popen([
-    "arecord", "-D", "hw:3,0", 
-    "-r", "16000", "-c", "1", "-f", "S16_LE", "-t", "wav"
-], stdout=subprocess.PIPE, bufsize=0) # Pipe the audio output directly to Python, no buffering.
+@router.post("/parse")
+def parse_stt_text(body: STTTextRequest):
+    intent = parse_intent(body.text)
+    if not intent:
+        raise HTTPException(status_code=400, detail="No intent derived from text")
+    return {"status": "ok", "intent": intent}
 
-try:
-    # Start an infinite loop to process audio in real-time.
-    while True:
-        # Read a chunk of raw bytes from the 'arecord' process output.
-        # 16000 bytes are read in each iteration.
-        data = proc.stdout.read(16000)  # 48000*2channels*2bytes=192kB/s, 16kB Chunks
-        # If no data is returned, the recording process has stopped/crashed.
-        if len(data) == 0: break
-        
-        # Feed the audio chunk to the recognizer.
-        # AcceptWaveform returns True if a full sentence/phrase is detected (silence detected).
-        if rec.AcceptWaveform(data):
-            # Parse the final JSON result for the completed phrase.
-            result = json.loads(rec.Result())
-            # Extract the 'text' string from the JSON object.
-            text = result.get('text', '').strip()
-            # If text is not empty, print it with a green checkmark.
-            if text: print(f"\n✅ '{text}'")
-            intent = parse_intent(text)
-            print(f"Intent erkannt: {intent}")
-        else:
-            # If the phrase is not yet complete (user is still speaking),
-            # get the partial result (real-time feedback).
-            partial = json.loads(rec.PartialResult())
-            # Print the partial text, overwriting the current line (\r) to create a dynamic effect.
-            print(f"\r⏳ {partial.get('partial', '')}", end='', flush=True)
-# Handle the user pressing CTRL+C to stop the script gracefully.
-except KeyboardInterrupt:
-    print("\nBeendet!")
-# Terminate the 'arecord' subprocess to release the microphone.
-proc.terminate()
+
+@router.post("/execute")
+def execute_stt_text(body: STTTextRequest):
+    intent = parse_intent(body.text)
+    if not intent:
+        raise HTTPException(status_code=400, detail="No intent derived from text")
+
+    command_id = controller.enqueue_command(intent)
+    return {"status": "accepted", "intent": intent, "command_id": command_id}
+
+
+# Optional: keep the CLI streaming demo for local testing without affecting FastAPI startup.
+def _run_live_stream(device: str = "hw:3,0", sample_rate: int = 16000) -> None:
+    import json
+    import subprocess
+    import vosk
+
+    model_path = "/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21"
+    model = vosk.Model(model_path)
+    recognizer = vosk.KaldiRecognizer(model, sample_rate)
+
+    print(f"Live-Stream ({device}, {sample_rate}Hz Mono)...")
+    proc = subprocess.Popen(
+        [
+            "arecord",
+            "-D",
+            device,
+            "-r",
+            str(sample_rate),
+            "-c",
+            "1",
+            "-f",
+            "S16_LE",
+            "-t",
+            "wav",
+        ],
+        stdout=subprocess.PIPE,
+        bufsize=0,
+    )
+
+    try:
+        while True:
+            data = proc.stdout.read(16000)
+            if len(data) == 0:
+                break
+
+            if recognizer.AcceptWaveform(data):
+                result = json.loads(recognizer.Result())
+                text = result.get("text", "").strip()
+                if text:
+                    print(f"\nText: '{text}'")
+                intent = parse_intent(text)
+                print(f"Intent erkannt: {intent}")
+            else:
+                partial = json.loads(recognizer.PartialResult())
+                print(f"\rTeil: {partial.get('partial', '')}", end="", flush=True)
+    except KeyboardInterrupt:
+        print("\nBeendet!")
+    finally:
+        proc.terminate()
+
+
+if __name__ == "__main__":
+    _run_live_stream()
