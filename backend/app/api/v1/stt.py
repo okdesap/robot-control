@@ -1,6 +1,8 @@
 import json
 import subprocess
 import vosk
+from app.api.v1.intent_parser import parse_intent
+
 
 # Path to the German language model directory. 
 # This folder contains the neural network data for speech recognition.
@@ -15,7 +17,7 @@ model = vosk.Model(MODEL_PATH)
 # at a sample rate of 16,000 Hz (16 kHz).
 rec = vosk.KaldiRecognizer(model, 16000)  # Deine Hardware-Rate
 
-print("Live-Stream (hw:2,0, 48kHz Stereo)...")
+print("Live-Stream (hw:3,0, 16kHz Mono)...")
 
 # Open a subprocess to run the Linux command-line tool 'arecord'.
 # This captures audio directly from the hardware driver (ALSA).
@@ -49,6 +51,8 @@ try:
             text = result.get('text', '').strip()
             # If text is not empty, print it with a green checkmark.
             if text: print(f"\n✅ '{text}'")
+            intent = parse_intent(text)
+            print(f"Intent erkannt: {intent}")
         else:
             # If the phrase is not yet complete (user is still speaking),
             # get the partial result (real-time feedback).
