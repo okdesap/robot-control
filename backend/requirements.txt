@@ -6,3 +6,4 @@ numpy
 Pillow
 ollama
 rx
+vosk
