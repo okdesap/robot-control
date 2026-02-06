@@ -1,215 +1,179 @@
 # Robot Control System
 
-Backend zur Steuerung von ROS2-Robotern über eine Web-API.
+Backend + Web-UI zur Steuerung von ROS2-Robotern (TurtleBot/Create3 oder Turtlesim).
 
-## Start (Windows PowerShell)
+## Voraussetzungen
 
-```powershell
-cd backend
-$env:ROBOT_BACKEND="sim"   # sim = turtlesim, real = turtlebot
-python app/main.py
-```
+- ROS2 installiert und gesourct (z.B. `source /opt/ros/jazzy/setup.bash`)
+- Python venv vorhanden: `/home/ros/ros/projects/takecontrol/.venv`
+- Node.js (für Quasar UI)
+- Für STT: `arecord` + Vosk Modell (Standard: `takecontrol/LM/vosk-model-de-0.21`)
+- Für TTS: mindestens eins von: `pico2wave` + `paplay/aplay` **oder** `spd-say` **oder** `espeak/espeak-ng`
 
-Hinweis (TurtleBot cmd_vel):
-- Standard ist `CMD_VEL_TOPIC=/cmd_vel` und `CMD_VEL_MSG_TYPE=Twist`.
-- Falls dein Robot auf `TwistStamped` hört, setze zusätzlich:
-```powershell
-$env:CMD_VEL_MSG_TYPE="TwistStamped"
-```
-
-## Start (Linux/WSL)
-
-```bash
-cd backend
-export ROBOT_BACKEND=sim    # sim = turtlesim, real = turtlebot
-python app/main.py
-```
-
-## Start (Linux – TurtleBot Real, empfohlen)
-
-Nutze das Script, damit ROS2‑Umgebung + venv automatisch geladen werden:
-
-```bash
-./backend/run_backend.sh
-```
-
-Wichtige Umgebungsvariablen (optional):
-
-```bash
-# Command Velocity Typ (TurtleBot4 nutzt i.d.R. TwistStamped)
-export CMD_VEL_MSG_TYPE=TwistStamped
-
-# Kamera-Topics (Standard + OAKD Preview)
-export CAMERA_TOPIC=/camera/image_raw
-export OAKD_CAMERA_TOPIC=/oakd/rgb/preview/image_raw
-
-# Docking ohne Nav2 erzwingen (Standard: aus)
-export DOCK_REQUIRE_NAV2=0
-```
-
-## UI starten (Quasar)
-
-Im Ordner web-ui/quasar-project:
-```bash
-cd web-ui/quasar-project
-npm install
-npm run dev
-```
-
-Danach im Browser öffnen: http://localhost:9000
-
-## Backend + UI zusammen (kurz)
+## Quickstart (Backend + UI)
 
 Terminal A (Backend):
+
 ```bash
-cd backend
-export ROBOT_BACKEND=sim
-python app/main.py
+source /home/ros/ros/projects/takecontrol/.venv/bin/activate
+python /home/ros/ros/projects/takecontrol/robot-control/backend/app/main.py
 ```
 
 Terminal B (UI):
+
 ```bash
-cd web-ui/quasar-project
+cd /home/ros/ros/projects/takecontrol/web-ui/quasar-project
 npm install
 npm run dev
 ```
 
-Dann im Browser öffnen: http://localhost:9000
+Backend: http://127.0.0.1:8000/docs
 
-## API
+## Backend starten (empfohlen)
 
-- `POST /api/v1/control/command` Body: `{"command":"forward 2.0"}`
-- `POST /api/v1/control/stop`
-- `GET /api/v1/control/health`
+### Real TurtleBot/Create3 (Linux)
 
-Swagger UI: http://localhost:8000/docs
+Das Script lädt ROS2 + Workspace + venv:
 
-## Turtlesim testen (ROS2 muss laufen)
+```bash
+/home/ros/ros/projects/takecontrol/robot-control/backend/run_backend.sh
+```
 
-1) ROS2 turtlesim starten:
+### Turtlesim (Linux)
+
 ```bash
 ros2 run turtlesim turtlesim_node
-```
 
-2) Backend starten (sim):
-```bash
-cd backend
+source /home/ros/ros/projects/takecontrol/.venv/bin/activate
 export ROBOT_BACKEND=sim
-python app/main.py
+python /home/ros/ros/projects/takecontrol/robot-control/backend/app/main.py
 ```
 
-3) Kommando senden:
+### Wichtig: Port 8000 schon belegt
 
-Windows PowerShell (empfohlen):
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" `
-  -ContentType "application/json" `
-  -Body '{"command":"forward 2.0"}'
-```
+Wenn du `address already in use` bekommst, läuft schon ein Backend. Prüfen:
 
-Linux/WSL/macOS:
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/control/command \
-	-H "Content-Type: application/json" \
-	-d '{"command":"forward 2.0"}'
+ss -ltnp | grep ':8000'
 ```
 
-Mehrere Kommandos schnell hintereinander (Queue):
+## UI (Quasar)
 
-Windows PowerShell (Beispiel):
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"forward 2"}'
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"left 1"}'
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" -ContentType "application/json" -Body '{"command":"forward 1"}'
-```
-
-Linux/WSL/macOS:
 ```bash
-curl -X POST http://127.0.0.1:8000/api/v1/control/command \
-	-H "Content-Type: application/json" \
-	-d '{"command":"forward 2"}'
-
-curl -X POST http://127.0.0.1:8000/api/v1/control/command \
-	-H "Content-Type: application/json" \
-	-d '{"command":"left 1"}'
-
-curl -X POST http://127.0.0.1:8000/api/v1/control/command \
-	-H "Content-Type: application/json" \
-	-d '{"command":"forward 1"}'
+cd /home/ros/ros/projects/takecontrol/web-ui/quasar-project
+npm install
+npm run dev
 ```
 
-## TurtleBot testen (Robot muss laufen)
+Die UI spricht standardmäßig das Backend unter `http://127.0.0.1:8000` an.
 
-1) TurtleBot ist online und hört auf `/cmd_vel`.
+## STT → API → Bot (Vosk)
 
-Debug (auf dem Robot/ROS Rechner):
-```bash
-ros2 topic info /cmd_vel
-ros2 topic list | grep cmd_vel
-```
-Wenn `ros2 topic info /cmd_vel` als Typ **TwistStamped** zeigt, starte das Backend mit:
-```powershell
-$env:ROBOT_BACKEND="real"
-$env:CMD_VEL_MSG_TYPE="TwistStamped"
-python app/main.py
-```
+Ziel: Vosk erkennt Sprache → Script schickt **rohen Text** an `POST /api/v1/stt/execute` → Backend erkennt Intent + fährt + spricht Bestätigung.
 
-2) Backend starten (real):
-```bash
-./backend/run_backend.sh
-```
-
-3) Kommando senden:
-
-Windows PowerShell (empfohlen):
-```powershell
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8000/api/v1/control/command" `
-  -ContentType "application/json" `
-  -Body '{"command":"forward 1.0"}'
-```
-
-Linux/WSL/macOS:
-```bash
-curl -X POST http://127.0.0.1:8000/api/v1/control/command \
-	-H "Content-Type: application/json" \
-	-d '{"command":"forward 1.0"}'
-```
+### 1) Backend muss laufen
 
 ```bash
 curl -s http://127.0.0.1:8000/api/v1/control/health
 ```
 
-## Docking / Undocking (TurtleBot)
+### 2) STT Live-Stream starten
 
-Docking nutzt Action‑Server `/dock` und `/undock`.
+```bash
+source /home/ros/ros/projects/takecontrol/.venv/bin/activate
+cd /home/ros/ros/projects/takecontrol/robot-control/backend/app/api/v1
+
+# optional, falls Backend nicht lokal ist
+export BACKEND_BASE_URL='http://127.0.0.1:8000'
+
+# optional: Vosk Modellpfad
+export STT_MODEL_PATH='/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21'
+
+python stt.py
+```
+
+### Audio "Gerät belegt" (PipeWire/WirePlumber)
+
+Wenn `arecord` mit `Ressource ist belegt` abbricht: nutze **kein** `hw:*`, sondern ein PipeWire-freundliches Device:
+
+```bash
+export STT_DEVICE='default:CARD=ArrayUAC10'
+python stt.py
+```
+
+Verfügbare Geräte anzeigen:
+
+```bash
+arecord -L
+arecord -l
+```
+
+### STT ohne Mikro testen (HTTP)
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/stt/execute \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"fahre vorwärts"}'
+```
+
+## TTS (HTTP)
+
+```bash
+curl -sS -X POST http://127.0.0.1:8000/api/v1/tts/say \
+  -H 'Content-Type: application/json' \
+  -d '{"text":"Hallo, Testausgabe.","lang":"de-DE"}'
+```
+
+TTS-Settings (optional):
+
+```bash
+# auto | pico2wave | spd-say | espeak
+export TTS_ENGINE=auto
+
+# falls du einen Player erzwingen willst (z.B. "paplay" oder "aplay")
+export TTS_PLAYER='paplay'
+
+# abschalten
+export TTS_ENABLED=0
+```
+
+## Steuer-API (Kurz)
+
+- `POST /api/v1/control/command` Body: `{"command":"forward 1.0 0.5"}`
+- `POST /api/v1/control/stop`
+- `GET /api/v1/control/photo`
+- `GET /api/v1/control/dock_status`
+
+Swagger UI: http://127.0.0.1:8000/docs
+
+## Docking / Undocking
+
+Der Backend-Default ist **Create3 Actions** `/dock` und `/undock` (ohne Nav2/AMCL).
+
 Status prüfen:
 
 ```bash
 curl -s http://127.0.0.1:8000/api/v1/control/dock_status
 ```
 
-Wenn `available=true`, können die UI‑Buttons „Dock“/„Undock“ verwendet werden.
-
-Hinweis: Nav2 ist **nicht** zwingend erforderlich (DOCK_REQUIRE_NAV2=0). Falls du Nav2 erzwingen möchtest, setze:
-
-```bash
-export DOCK_REQUIRE_NAV2=1
-```
-
 ## Kamera / Foto
 
-Die Foto‑Funktion nutzt ROS2‑Images. Standard‑Topics:
+Die Foto-Funktion nutzt ROS2 Image Topics (Standard):
 
-```bash
-/camera/image_raw
-/oakd/rgb/preview/image_raw
-```
+- `/camera/image_raw`
+- `/oakd/rgb/preview/image_raw`
 
-Falls dein Robot andere Topics verwendet, setze:
+Topics überschreiben:
 
 ```bash
 export CAMERA_TOPIC=/dein/camera/topic
 export OAKD_CAMERA_TOPIC=/dein/oakd/topic
 ```
 
-Nach „FOTO MACHEN“ wird ein PNG als base64 geliefert und direkt in der UI angezeigt.
+Foto-Format (optional):
+
+```bash
+export PHOTO_FORMAT=jpeg   # oder png
+export PHOTO_MAX_WIDTH=640
+export PHOTO_JPEG_QUALITY=75
+```

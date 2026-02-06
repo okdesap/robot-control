@@ -6,12 +6,12 @@ client = ollama.Client()
 
 model  = "llama3:8b"
 
-# All models must be installed before use
+#All Models must be installeb before use
 # ollama run {name}
-# llama3.2:1b 1.3GB, 3B parameters
-# llama3:8b   4.7GB, 8B parameters
+#llama3.2:1b 1.3GB, 3B Parameter
+#llama3:8b   4.7GB, 8B Parameter 
 
-# TODO: take input from frontend
+#TODO hier input frontend
 user_input = "Lasse den Roboter für 3 Sekunden vorwärts fahren."
 
 

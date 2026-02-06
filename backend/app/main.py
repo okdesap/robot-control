@@ -16,6 +16,15 @@ if __package__ is None or __package__ == "":
 
 from app.core.logging_config import setup_logging
 
+# Default env so the app can start ohne manuelles Exportieren.
+DEFAULT_ENV = {
+    "ROBOT_BACKEND": "real",          # real TurtleBot statt sim
+    "CMD_VEL_TOPIC": "/cmd_vel",      # Standard-Cmd-Vel Topic
+    "CMD_VEL_MSG_TYPE": "TwistStamped",  # TurtleBot4 nutzt TwistStamped
+}
+for _k, _v in DEFAULT_ENV.items():
+    os.environ.setdefault(_k, _v)
+
 from app.api.app import create_api_app
 
 
@@ -24,11 +33,13 @@ app = create_api_app()
 
 
 def start_server():
+    # Reload + ROS2 (rclpy) is fragile; allow opt-in via env.
+    reload_enabled = os.getenv("BACKEND_RELOAD", "0").strip() in {"1", "true", "yes", "on"}
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=8000,
-        reload=True
+        reload=reload_enabled,
     )
 
 if __name__ == "__main__":
