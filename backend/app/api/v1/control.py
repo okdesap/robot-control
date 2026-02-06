@@ -1,7 +1,8 @@
 """
 Control API
 """
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
+
 from pydantic import BaseModel
 from app.core.controller import controller
 
@@ -12,6 +13,8 @@ router = APIRouter()
 class CommandRequest(BaseModel):
     command: str
 
+class STTRequest(BaseModel):
+    original_text: str
 
 class NavigateRequest(BaseModel):
     x: float
@@ -32,6 +35,26 @@ def navigate_to_pose(request: NavigateRequest):
     command_text = f"nav {request.x} {request.y} {request.yaw_deg}"
     command_id = controller.enqueue_command(command_text)
     return {"status": "accepted", "command_id": command_id, "command": command_text}
+
+@router.post("/stt")
+def handle_stt_command(request: STTRequest):
+    """ POST /api/v1/control/stt """
+    command = parse_intent(request.original_text)
+
+    if not command:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Command could not be derived from STT text"
+            )
+    
+    if command == "stop":
+        controller.emergency_stop()
+        return {"status": "stopped", "original_text": request.original_text, "command": command, "command_id": None}
+    
+    command_id = controller.enqueue_command(command)
+
+    return {"status": "success","original_text": request.original_text,"command_id": command_id,"command": command}
+
 
 
 @router.post("/stop")

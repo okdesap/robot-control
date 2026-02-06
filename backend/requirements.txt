@@ -7,3 +7,5 @@ Pillow
 ollama
 rx
 vosk
+requests
+rclpy-intellisense

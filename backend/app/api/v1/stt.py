@@ -27,7 +27,7 @@ print("Live-Stream (hw:2,0, 48kHz Stereo)...")
 # "-f", "S16_LE": Format is Signed 16-bit Little Endian (standard for audio processing).
 # "-t", "raw": Outputs raw data without a WAV header (important for streaming).
 proc = subprocess.Popen([
-    "arecord", "-D", "hw:1,0", 
+    "arecord", "-D", "hw:3,0", 
     "-r", "16000", "-c", "1", "-f", "S16_LE", "-t", "wav"
 ], stdout=subprocess.PIPE, bufsize=0) # Pipe the audio output directly to Python, no buffering.
 
