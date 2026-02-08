@@ -36,62 +36,64 @@ functions_text1 = """
    - Keine Parameter
 """
 
-prompt = f"""
-Du bist ein Roboter-KI-Assistent.
-Du kannst folgende Funktionen ausführen, um den Roboter zu steuern:
-{functions_text1}
+def function_calling(user_input: str) -> str:
+    prompt = f"""
+  Du bist ein Roboter-KI-Assistent.
+  Du kannst folgende Funktionen ausführen, um den Roboter zu steuern:
+  {functions_text1}
 
-Aufgabe:  
-- Antworte **nur im JSON-Format**, das die auszuführende Funktion und ihre Parameter enthält.
-- Das Format muss exakt so sein:
+  Aufgabe:  
+  - Antworte **nur im JSON-Format**, das die auszuführende Funktion und ihre Parameter enthält.
+  - Das Format muss exakt so sein:
 
-{{
-  "function_call": {{
-    "name": "funktion_name",
-    "arguments": {{
-      "... hier die Parameter ..."
+  {{
+    "function_call": {{
+      "name": "funktion_name",
+      "arguments": {{
+        "... hier die Parameter ..."
+      }}
     }}
   }}
-}}
 
-Beispiele:
+  Beispiele:
 
-1. Roboter 3 Sekunden vorwärts fahren:
-{{
-  "function_call": {{
-    "name": "move_forward",
-    "arguments": {{
-      "duration": 3
+  1. Roboter 3 Sekunden vorwärts fahren:
+  {{
+    "function_call": {{
+      "name": "move_forward",
+      "arguments": {{
+        "duration": 3
+      }}
     }}
   }}
-}}
 
-2. Roboter sofort stoppen:
-{{
-  "function_call": {{
-    "name": "stop"
+  2. Roboter sofort stoppen:
+  {{
+    "function_call": {{
+      "name": "stop"
+    }}
   }}
-}}
 
-Deine Aufgabe: Lies die folgende Benutzeranfrage und wähle **die passende Funktion** mit passenden Parametern aus:
+  Deine Aufgabe: Lies die folgende Benutzeranfrage und wähle **die passende Funktion** mit passenden Parametern aus:
 
-Benutzeranfrage: "{user_input}"
+  Benutzeranfrage: "{user_input}"
 
-GIB NUR DAS KORREKTE JSON WIEDER
-"""
-
-
-def use_function_calling():
+  GIB NUR DAS KORREKTE JSON WIEDER
+  """
     response = client.generate(model=model, prompt=prompt)
     data_old = response["response"]
+
+    print("data_old:", data_old)
 
     try:
         data = json.loads(data_old)
         name = data["function_call"]["name"]
         arg = data["function_call"]["arguments"]["duration"]
-        controller.execute_command(name + " " + str(arg))
+
+        final_cmd = name + " " + str(arg)
+        print("Command to be executed:", final_cmd)
+        return final_cmd
+        
     except json.JSONDecodeError as e:
         print("Error in LLM:", e)
         print("LMM data:", data_old)
-
-use_function_calling()

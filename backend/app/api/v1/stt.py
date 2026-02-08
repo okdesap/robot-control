@@ -13,6 +13,7 @@ if __package__ is None or __package__ == "":
         sys.path.insert(0, backend_root)
 
 from app.api.v1.intent_parser import parse_intent
+from app.api.v1.function_calling import function_calling
 
 
 router = APIRouter()
@@ -56,7 +57,13 @@ def execute_stt_text(body: STTTextRequest):
     from app.core.controller import controller
     from app.core.tts_service import say_async
 
-    intent = parse_intent(body.text)
+    intent_mode = os.getenv("INTENT_MODE", "parse")
+
+    if intent_mode == "parse":
+        intent = parse_intent(body.text) 
+    else:
+        intent = function_calling(body.text) 
+    
     if not intent:
         raise HTTPException(status_code=400, detail="No intent derived from text")
 

@@ -21,6 +21,7 @@ DEFAULT_ENV = {
     "ROBOT_BACKEND": "real",          # real TurtleBot statt sim
     "CMD_VEL_TOPIC": "/cmd_vel",      # Standard-Cmd-Vel Topic
     "CMD_VEL_MSG_TYPE": "TwistStamped",  # TurtleBot4 nutzt TwistStamped
+    "INTENT_MODE": "parse",       # "parse" oder "function_calling"
 }
 for _k, _v in DEFAULT_ENV.items():
     os.environ.setdefault(_k, _v)
