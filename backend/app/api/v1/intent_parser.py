@@ -13,31 +13,22 @@ BATTERY_KEYWORDS = [
     "battery",
 ]
 
-COMMAND_MAP = {
-    # FORWARD
-    "fahr vor": "forward",
-    "vorwärts": "forward",
-    "geradeaus": "forward",
-    "fahr": "forward",
+PHOTO_KEYWORDS = [
+    "foto",
+    "photo",
+    "bild",
+    "aufnahme",
+    "schnappschuss",
+]
 
-    # LEFT
-    "dreh links": "left",
-    "nach links": "left",
-    "links": "left",
+DOCK_KEYWORDS = ["dock", "andocken", "docke an", "an docken"]
+UNDOCK_KEYWORDS = ["undock", "abdocken", "docke ab", "ab docken"]
 
-    # RIGHT
-    "dreh rechts": "right",
-    "nach rechts": "right",
-    "rechts": "right",
-
-    # DOCK / UNDOCK
-    "dock": "dock",
-    "andocken": "dock",
-    "docke an": "dock",
-    "undock": "undock",
-    "abdocken": "undock",
-    "docke ab": "undock",
-}
+FORWARD_KEYWORDS = ["vorwärts", "vorwaerts", "geradeaus", "fahr vor", "fahre vor"]
+BACKWARD_KEYWORDS = ["rückwärts", "rueckwaerts", "zurück", "zurueck", "backward", "fahr zurück", "fahre zurück"]
+LEFT_KEYWORDS = ["links", "nach links", "dreh links", "drehe links"]
+RIGHT_KEYWORDS = ["rechts", "nach rechts", "dreh rechts", "drehe rechts"]
+NAV_KEYWORDS = ["navigiere", "fahre zu", "geh zu", "go to", "ziel", "koordinate", "koordinaten"]
 
 def extract_number(text: str) -> Optional[float]:
     """
@@ -49,6 +40,20 @@ def extract_number(text: str) -> Optional[float]:
     return None
 
 
+def extract_numbers(text: str) -> list[float]:
+    vals: list[float] = []
+    for m in re.findall(r"-?\d+(?:[.,]\d+)?", text):
+        try:
+            vals.append(float(m.replace(",", ".")))
+        except Exception:
+            pass
+    return vals
+
+
+def _contains_any(text: str, keywords: list[str]) -> bool:
+    return any(k in text for k in keywords)
+
+
 def parse_intent(stt_text: str) -> Optional[str]:
     """
     Changes raw STT-Text into correct command
@@ -58,8 +63,24 @@ def parse_intent(stt_text: str) -> Optional[str]:
 
     normalized = stt_text.lower().strip()
 
-    if any(k in normalized for k in BATTERY_KEYWORDS):
+    if _contains_any(normalized, BATTERY_KEYWORDS):
         return "get_battery_status"
+
+    if _contains_any(normalized, PHOTO_KEYWORDS):
+        return "take_photo"
+
+    if _contains_any(normalized, DOCK_KEYWORDS):
+        return "dock"
+
+    if _contains_any(normalized, UNDOCK_KEYWORDS):
+        return "undock"
+
+    if _contains_any(normalized, NAV_KEYWORDS):
+        nums = extract_numbers(normalized)
+        if len(nums) >= 2:
+            x, y = nums[0], nums[1]
+            yaw = nums[2] if len(nums) >= 3 else 0.0
+            return f"nav {x} {y} {yaw}"
     
     for key in STOP_KEYWORDS:
         if key in normalized:
@@ -79,12 +100,16 @@ def parse_intent(stt_text: str) -> Optional[str]:
     except Exception:
         default_angular = 0.5
 
-    for phrase, command in COMMAND_MAP.items():
-        if phrase in normalized:
-            if command == "forward":
-                return f"{command} {duration} {default_linear}"
-            if command in {"left", "right"}:
-                return f"{command} {duration} {default_angular}"
-            return f"{command} {duration}"
+    if _contains_any(normalized, FORWARD_KEYWORDS):
+        return f"forward {duration} {default_linear}"
+
+    if _contains_any(normalized, BACKWARD_KEYWORDS):
+        return f"backward {duration} {default_linear}"
+
+    if _contains_any(normalized, LEFT_KEYWORDS):
+        return f"left {duration} {default_angular}"
+
+    if _contains_any(normalized, RIGHT_KEYWORDS):
+        return f"right {duration} {default_angular}"
 
     return None

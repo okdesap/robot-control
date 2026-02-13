@@ -68,6 +68,8 @@ def _reply_for_intent(intent: str) -> str:
         return "Verstanden. Ich stoppe."
     if action == "forward":
         return "Verstanden. Ich fahre vorwärts."
+    if action == "backward":
+        return "Verstanden. Ich fahre rückwärts."
     if action == "left":
         return "Verstanden. Ich drehe nach links."
     if action == "right":
@@ -118,6 +120,27 @@ def execute_stt_text(body: STTTextRequest):
     
     if not intent:
         raise HTTPException(status_code=400, detail="No intent derived from text")
+
+    if intent == "take_photo":
+        try:
+            _ = controller.take_photo()
+            reply = "Foto aufgenommen."
+            say_async(reply)
+            return {
+                "status": "ok",
+                "intent": intent,
+                "reply": reply,
+                "command_id": None,
+            }
+        except Exception:
+            reply = "Foto konnte nicht aufgenommen werden."
+            say_async(reply)
+            return {
+                "status": "ok",
+                "intent": intent,
+                "reply": reply,
+                "command_id": None,
+            }
 
     if intent == "get_battery_status":
         battery = controller.get_battery()
