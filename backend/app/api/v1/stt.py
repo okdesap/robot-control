@@ -3,6 +3,9 @@ from pydantic import BaseModel
 
 import os
 import sys
+import threading
+import time
+from typing import Optional
 
 # Allow running this module as a script: `python stt.py`
 # by ensuring the backend root (folder containing `app/`) is on sys.path.
@@ -20,6 +23,40 @@ router = APIRouter()
 
 class STTTextRequest(BaseModel):
     text: str
+
+
+class STTLiveStartRequest(BaseModel):
+    device: Optional[str] = None
+    sample_rate: Optional[int] = None
+
+
+_live_lock = threading.RLock()
+_live_stop_event = threading.Event()
+_live_thread: threading.Thread | None = None
+_live_state: dict[str, object] = {
+    "running": False,
+    "device": None,
+    "sample_rate": None,
+    "started_at": None,
+    "last_error": None,
+    "phase": "idle",
+    "last_event_seq": 0,
+    "last_event_text": None,
+    "last_heard_text": None,
+    "last_command_text": None,
+    "last_reply": None,
+}
+
+
+def _set_live_event(text: str, phase: str | None = None) -> None:
+    with _live_lock:
+        try:
+            _live_state["last_event_seq"] = int(_live_state.get("last_event_seq", 0)) + 1
+        except Exception:
+            _live_state["last_event_seq"] = 1
+        _live_state["last_event_text"] = text
+        if phase is not None:
+            _live_state["phase"] = phase
 
 
 def _reply_for_intent(intent: str) -> str:
@@ -73,7 +110,7 @@ def execute_stt_text(body: STTTextRequest):
 
 
 # keep the CLI streaming demo for local testing without affecting FastAPI startup.
-def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
+def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event: threading.Event | None = None) -> None:
     import json
     import subprocess
     import time
@@ -160,9 +197,16 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
         )
 
     print(f"Live-Stream ({chosen}, {sample_rate}Hz Mono) -> POST {endpoint}")
+    with _live_lock:
+        _live_state["device"] = chosen
+        _live_state["phase"] = "listening"
+    _set_live_event("Sprachsteuerung aktiv. Ich höre zu.", phase="listening")
 
     try:
         while True:
+            if stop_event is not None and stop_event.is_set():
+                break
+
             data = proc.stdout.read(16000)
             if len(data) == 0:
                 break
@@ -176,6 +220,9 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
                 result = json.loads(recognizer.Result())
                 text = (result.get("text", "") or "").strip()
                 text_l = text.lower()
+                if text:
+                    with _live_lock:
+                        _live_state["last_heard_text"] = text
 
                 if text:
                     print(f"\nText: '{text}'")
@@ -186,6 +233,7 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
                         awake = True
                         awake_until = time.time() + awake_timeout_s
                         print("Wake word detected. Listening for command...")
+                        _set_live_event("Wake Word erkannt. Ich führe den nächsten Befehl aus.", phase="awake")
                     continue
 
                 # Awake: send recognized text to backend (but ignore pure wake-word-only utterances).
@@ -195,10 +243,32 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
                 if text:
                     try:
                         # Send raw recognized text to the backend; backend derives intent + executes.
+                        with _live_lock:
+                            _live_state["phase"] = "executing"
+                            _live_state["last_command_text"] = text
                         res = requests.post(endpoint, json={"text": text}, timeout=5)
                         print(f"Backend: {res.status_code} {res.text}")
+                        try:
+                            payload = res.json()
+                        except Exception:
+                            payload = {}
+                        reply = payload.get("reply") if isinstance(payload, dict) else None
+                        if reply:
+                            with _live_lock:
+                                _live_state["last_reply"] = reply
+                        if res.ok:
+                            _set_live_event(
+                                f"Befehl erkannt: '{text}'. {reply or 'Wird ausgeführt.'}",
+                                phase="listening",
+                            )
+                        else:
+                            _set_live_event(
+                                f"Befehl konnte nicht ausgeführt werden: '{text}'",
+                                phase="listening",
+                            )
                     except Exception as exc:
                         print(f"HTTP failed: {exc}")
+                        _set_live_event(f"Backend-Fehler bei Sprachbefehl: {exc}", phase="listening")
             else:
                 partial = json.loads(recognizer.PartialResult())
                 ptxt = (partial.get("partial", "") or "").strip()
@@ -214,6 +284,7 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
                     awake = True
                     awake_until = time.time() + awake_timeout_s
                     print("\nWake word detected (partial). Listening for command...")
+                    _set_live_event("Wake Word erkannt. Ich führe den nächsten Befehl aus.", phase="awake")
 
                     # reset to reduce chance of sending the wake word as the command.
                     # Vosk has a recognizer reset in the API; python binding may expose it as Reset(). 
@@ -229,7 +300,86 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
             proc.terminate()
         except Exception:
             pass
+        with _live_lock:
+            if _live_state.get("running"):
+                _live_state["phase"] = "stopped"
 
 
 if __name__ == "__main__":
     _run_live_stream()
+
+
+def _live_status_payload() -> dict:
+    with _live_lock:
+        running = bool(_live_thread is not None and _live_thread.is_alive())
+        _live_state["running"] = running
+        return dict(_live_state)
+
+
+@router.get("/live/status")
+def live_status():
+    return {"status": "ok", **_live_status_payload()}
+
+
+@router.post("/live/start")
+def live_start(body: STTLiveStartRequest | None = None):
+    global _live_thread
+    req = body or STTLiveStartRequest()
+
+    with _live_lock:
+        if _live_thread is not None and _live_thread.is_alive():
+            return {"status": "already_running", **_live_status_payload()}
+
+        device = (req.device or os.getenv("STT_DEVICE") or "").strip() or None
+        sample_rate = int(req.sample_rate or int(os.getenv("STT_SAMPLE_RATE", "16000") or "16000"))
+
+        _live_stop_event.clear()
+        _live_state["running"] = True
+        _live_state["device"] = device or "auto"
+        _live_state["sample_rate"] = sample_rate
+        _live_state["started_at"] = time.time()
+        _live_state["last_error"] = None
+        _live_state["phase"] = "starting"
+
+        def _runner() -> None:
+            try:
+                _run_live_stream(device=device or "hw:3", sample_rate=sample_rate, stop_event=_live_stop_event)
+            except Exception as exc:
+                with _live_lock:
+                    _live_state["last_error"] = str(exc)
+                    _live_state["phase"] = "error"
+                _set_live_event(f"Sprachsteuerung Fehler: {exc}", phase="error")
+            finally:
+                with _live_lock:
+                    _live_state["running"] = False
+                    if _live_state.get("phase") != "error":
+                        _live_state["phase"] = "stopped"
+
+        _live_thread = threading.Thread(target=_runner, name="stt-live", daemon=True)
+        _live_thread.start()
+
+    return {"status": "started", **_live_status_payload()}
+
+
+@router.post("/live/stop")
+def live_stop():
+    global _live_thread
+    with _live_lock:
+        if _live_thread is None or not _live_thread.is_alive():
+            _live_state["running"] = False
+            return {"status": "not_running", **_live_status_payload()}
+
+        _live_stop_event.set()
+        t = _live_thread
+
+    t.join(timeout=3.0)
+
+    with _live_lock:
+        _live_state["running"] = bool(_live_thread is not None and _live_thread.is_alive())
+        if not _live_state["running"]:
+            _live_thread = None
+            _live_state["phase"] = "stopped"
+
+    _set_live_event("Sprachsteuerung gestoppt.", phase="stopped")
+
+    return {"status": "stopping", **_live_status_payload()}
