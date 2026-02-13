@@ -4,6 +4,15 @@ import os
 
 STOP_KEYWORDS = ["stop", "stopp", "halt", "halte an"]
 
+BATTERY_KEYWORDS = [
+    "akku",
+    "batterie",
+    "batteriestand",
+    "batterie stand",
+    "ladestand",
+    "battery",
+]
+
 COMMAND_MAP = {
     # FORWARD
     "fahr vor": "forward",
@@ -48,6 +57,9 @@ def parse_intent(stt_text: str) -> Optional[str]:
         return None
 
     normalized = stt_text.lower().strip()
+
+    if any(k in normalized for k in BATTERY_KEYWORDS):
+        return "get_battery_status"
     
     for key in STOP_KEYWORDS:
         if key in normalized:

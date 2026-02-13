@@ -69,8 +69,22 @@ class RobotController:
     def health(self) -> dict:
         """Quick health info for debugging."""
         logger.debug("health called")
+        battery_pct = None
+        try:
+            battery = self.get_battery()
+            raw_pct = battery.get("percentage") if isinstance(battery, dict) else None
+            if raw_pct is not None:
+                pct = float(raw_pct)
+                # Some ROS drivers report battery in [0,1], others already in [0,100].
+                if 0.0 <= pct <= 1.0:
+                    pct *= 100.0
+                battery_pct = round(max(0.0, min(100.0, pct)), 2)
+        except Exception:
+            battery_pct = None
+
         return {
             "robot_backend": type(self.robot).__name__,
+            "battery": battery_pct,
         }
     
     def take_photo(self) -> str:

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+import logging
 import os
 import sys
 import threading
@@ -19,6 +20,7 @@ from app.api.v1.intent_parser import parse_intent
 from app.api.v1.function_calling import function_calling
 
 router = APIRouter()
+logger = logging.getLogger("backend.api.stt")
 
 
 class STTTextRequest(BaseModel):
@@ -93,15 +95,57 @@ def execute_stt_text(body: STTTextRequest):
     from app.core.controller import controller
     from app.core.tts_service import say_async
 
-    intent_mode = os.getenv("INTENT_MODE", "parse")
+    # Always try rule-based parsing first (important for deterministic intents
+    # like battery queries), then optionally LLM function calling.
+    rule_intent = parse_intent(body.text)
 
-    if intent_mode == "parse":
-        intent = parse_intent(body.text) 
+    # Handle battery query early and deterministically.
+    if rule_intent == "get_battery_status":
+        intent = rule_intent
     else:
-        intent = function_calling(body.text) 
+        intent_mode = os.getenv("INTENT_MODE", "parse")
+        if intent_mode == "parse":
+            intent = rule_intent
+        else:
+            try:
+                intent = function_calling(body.text)
+            except Exception as exc:
+                logger.warning("function_calling failed, fallback to parse_intent: %s", exc)
+                intent = None
+
+            if not intent:
+                intent = rule_intent
     
     if not intent:
         raise HTTPException(status_code=400, detail="No intent derived from text")
+
+    if intent == "get_battery_status":
+        battery = controller.get_battery()
+        raw_pct = battery.get("percentage") if isinstance(battery, dict) else None
+
+        percent_value = None
+        if raw_pct is not None:
+            try:
+                p = float(raw_pct)
+                if 0.0 <= p <= 1.0:
+                    p *= 100.0
+                percent_value = max(0.0, min(100.0, p))
+            except Exception:
+                percent_value = None
+
+        if percent_value is None:
+            reply = "Der Batteriestatus konnte gerade nicht ermittelt werden."
+        else:
+            reply = f"Der aktuelle Batteriestatus beträgt {percent_value:.0f} Prozent."
+
+        say_async(reply)
+        return {
+            "status": "ok",
+            "intent": intent,
+            "battery": percent_value,
+            "reply": reply,
+            "command_id": None,
+        }
 
     command_id = controller.enqueue_command(intent)
     reply = _reply_for_intent(intent)
