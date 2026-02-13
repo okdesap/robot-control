@@ -15,7 +15,6 @@ if __package__ is None or __package__ == "":
 from app.api.v1.intent_parser import parse_intent
 from app.api.v1.function_calling import function_calling
 
-
 router = APIRouter()
 
 
@@ -73,7 +72,7 @@ def execute_stt_text(body: STTTextRequest):
     return {"status": "accepted", "intent": intent, "command_id": command_id, "reply": reply}
 
 
-# Optional: keep the CLI streaming demo for local testing without affecting FastAPI startup.
+# keep the CLI streaming demo for local testing without affecting FastAPI startup.
 def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
     import json
     import subprocess
@@ -87,6 +86,14 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
 
     base = (os.getenv("BACKEND_BASE_URL", "http://127.0.0.1:8000") or "http://127.0.0.1:8000").rstrip("/")
     endpoint = os.getenv("STT_HTTP_ENDPOINT", f"{base}/api/v1/stt/execute") or f"{base}/api/v1/stt/execute"
+
+    # WAKE WORD CONFIG
+    # Wake word: "Hallo Kröte"
+    wake_word = (os.getenv("WAKE_WORD", "Hallo Kröte") or "Hallo Kröte").strip().lower()
+    awake_timeout_s = float(os.getenv("WAKE_TIMEOUT_S", "8") or "8")
+    awake = False
+    awake_until = 0.0
+    last_partial = ""
 
     # PipeWire/WirePlumber often keeps the *hw* device open.
     # Using ALSA 'default' (which routes through PipeWire) avoids "device busy".
@@ -160,11 +167,31 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
             if len(data) == 0:
                 break
 
+            # Timeout: fall back to sleep state
+            if awake and time.time() > awake_until:
+                awake = False
+
+            # changed - or insertet and text.lower()
             if recognizer.AcceptWaveform(data):
                 result = json.loads(recognizer.Result())
-                text = result.get("text", "").strip()
+                text = (result.get("text", "") or "").strip()
+                text_l = text.lower()
+
                 if text:
                     print(f"\nText: '{text}'")
+
+                # If not awake, only listen for wake word in final text.
+                if not awake:
+                    if wake_word and wake_word in text_l:
+                        awake = True
+                        awake_until = time.time() + awake_timeout_s
+                        print("Wake word detected. Listening for command...")
+                    continue
+
+                # Awake: send recognized text to backend (but ignore pure wake-word-only utterances).
+                if wake_word and text_l == wake_word:
+                    continue
+
                 if text:
                     try:
                         # Send raw recognized text to the backend; backend derives intent + executes.
@@ -174,7 +201,27 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000) -> None:
                         print(f"HTTP failed: {exc}")
             else:
                 partial = json.loads(recognizer.PartialResult())
-                print(f"\rTeil: {partial.get('partial', '')}", end="", flush=True)
+                ptxt = (partial.get("partial", "") or "").strip()
+                if ptxt and ptxt != last_partial:
+                    last_partial = ptxt
+
+                # Show partials (same as before)
+                print(f"\rTeil: {ptxt}", end="", flush=True)
+
+                # Wake-word detection on partials for lower latency.
+                ptxt_l = ptxt.lower()
+                if not awake and wake_word and wake_word in ptxt_l:
+                    awake = True
+                    awake_until = time.time() + awake_timeout_s
+                    print("\nWake word detected (partial). Listening for command...")
+
+                    # reset to reduce chance of sending the wake word as the command.
+                    # Vosk has a recognizer reset in the API; python binding may expose it as Reset(). 
+                    try:
+                        recognizer.Reset()
+                    except Exception:
+                        pass
+
     except KeyboardInterrupt:
         print("\nBeendet!")
     finally:
