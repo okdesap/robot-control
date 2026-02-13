@@ -88,6 +88,9 @@ def function_calling(user_input: str) -> str:
     try:
         data = json.loads(data_old)
         name = data["function_call"]["name"]
+        if name == "stop":
+            print("Command to be executed:", name)
+            return name
         arg = data["function_call"]["arguments"]["duration"]
 
         final_cmd = name + " " + str(arg)
