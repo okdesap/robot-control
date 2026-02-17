@@ -47,6 +47,8 @@ _live_state: dict[str, object] = {
     "last_heard_text": None,
     "last_command_text": None,
     "last_reply": None,
+    "last_photo": None,
+    "last_photo_seq": 0,
 }
 
 
@@ -123,18 +125,30 @@ def execute_stt_text(body: STTTextRequest):
 
     if intent == "take_photo":
         try:
-            _ = controller.take_photo()
+            photo = controller.take_photo()
             reply = "Foto aufgenommen."
             say_async(reply)
+            with _live_lock:
+                try:
+                    _live_state["last_photo_seq"] = int(_live_state.get("last_photo_seq", 0)) + 1
+                except Exception:
+                    _live_state["last_photo_seq"] = 1
+                _live_state["last_photo"] = photo
+                _live_state["last_reply"] = reply
+            _set_live_event("Foto aufgenommen und an UI übertragen.", phase="listening")
             return {
                 "status": "ok",
                 "intent": intent,
                 "reply": reply,
+                "photo": photo,
                 "command_id": None,
             }
         except Exception:
             reply = "Foto konnte nicht aufgenommen werden."
             say_async(reply)
+            with _live_lock:
+                _live_state["last_reply"] = reply
+            _set_live_event("Fotoaufnahme fehlgeschlagen.", phase="listening")
             return {
                 "status": "ok",
                 "intent": intent,
