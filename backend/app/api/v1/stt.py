@@ -206,7 +206,7 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event:
     endpoint = os.getenv("STT_HTTP_ENDPOINT", f"{base}/api/v1/stt/execute") or f"{base}/api/v1/stt/execute"
 
     # WAKE WORD CONFIG
-    # Wake word: "Hallo Kröte"
+    # Wake word phrase (configured via WAKE_WORD).
     wake_word = (os.getenv("WAKE_WORD", "Hallo Kröte") or "Hallo Kröte").strip().lower()
     awake_timeout_s = float(os.getenv("WAKE_TIMEOUT_S", "8") or "8")
     awake = False
