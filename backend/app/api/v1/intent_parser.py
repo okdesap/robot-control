@@ -3,29 +3,11 @@ import re
 import os
 
 STOP_KEYWORDS = ["stop", "stopp", "halt", "halte an"]
-
-BATTERY_KEYWORDS = [
-    "akku",
-    "batterie",
-    "batteriestand",
-    "batterie stand",
-    "ladestand",
-    "battery",
-]
-
-PHOTO_KEYWORDS = [
-    "foto",
-    "photo",
-    "bild",
-    "aufnahme",
-    "schnappschuss",
-]
-
+BATTERY_KEYWORDS = ["akku","batterie","batteriestand","batterie stand","ladestand","battery",]
+PHOTO_KEYWORDS = ["foto", "photo", "bild", "aufnahme", "schnappschuss"]
 DOCK_KEYWORDS = ["dock", "andocken", "docke an", "an docken"]
 UNDOCK_KEYWORDS = ["undock", "abdocken", "docke ab", "ab docken"]
-
 FORWARD_KEYWORDS = ["vorwärts", "vorwaerts", "geradeaus", "fahr vor", "fahre vor"]
-BACKWARD_KEYWORDS = ["rückwärts", "rueckwaerts", "zurück", "zurueck", "backward", "fahr zurück", "fahre zurück"]
 LEFT_KEYWORDS = ["links", "nach links", "dreh links", "drehe links"]
 RIGHT_KEYWORDS = ["rechts", "nach rechts", "dreh rechts", "drehe rechts"]
 NAV_KEYWORDS = ["navigiere", "fahre zu", "geh zu", "go to", "ziel", "koordinate", "koordinaten"]
@@ -102,10 +84,7 @@ def parse_intent(stt_text: str) -> Optional[str]:
 
     if _contains_any(normalized, FORWARD_KEYWORDS):
         return f"forward {duration} {default_linear}"
-
-    if _contains_any(normalized, BACKWARD_KEYWORDS):
-        return f"backward {duration} {default_linear}"
-
+        
     if _contains_any(normalized, LEFT_KEYWORDS):
         return f"left {duration} {default_angular}"
 

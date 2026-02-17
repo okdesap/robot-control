@@ -28,6 +28,29 @@ functions_text1 = """
 4. stop()
    - Lässt den Roboter sofort stoppen
    - Keine Parameter
+
+5. get_battery_status()
+    - Gibt den aktuellen Batteriestatus zurück
+    - Keine Parameter
+
+6. take_photo()
+    - Lässt den Roboter ein Foto aufnehmen
+    - Keine Parameter
+
+7. dock()
+    - Lässt den Roboter andocken
+    - Keine Parameter
+
+8. undock()
+    - Lässt den Roboter abdocken
+    - Keine Parameter
+
+9. nav(x: float, y: float, yaw: float = 0.0)
+   - Lässt den Roboter zu einer bestimmten Position navigieren
+   - Parameter:
+       - x (Ziel-X-Koordinate im Karten- oder Weltkoordinatensystem)
+       - y (Ziel-Y-Koordinate im Karten- oder Weltkoordinatensystem)
+       - yaw (Ziel-Orientierungswinkel in Grad oder Radiant, Standard: 0.0)
 """
 
 def function_calling(user_input: str):
@@ -84,7 +107,7 @@ GIB NUR DAS KORREKTE JSON WIEDER
         if first_cmd:
             action = first_cmd["name"]
             return _reply_for_intent(action)
-        return "Befehl(en) ausgeführt."
+        return "Befehl ausgeführt."
 
     except json.JSONDecodeError as e:
         print("Error parsing JSON:", e)
