@@ -12,7 +12,6 @@ logger = logging.getLogger("backend.core.controller")
 
 
 class RobotController:
-    
     def __init__(self):
         logger.debug("Initializing RobotController")
         self.robot = get_robot_backend()
@@ -40,8 +39,7 @@ class RobotController:
     def emergency_stop(self) -> None:
         """Cancel the current command and clear the queue."""
         logger.debug("emergency_stop called")
-        self._queue.emergency_stop(clear_queue=True) 
-
+        self._queue.emergency_stop(clear_queue=True)
 
     def status(self) -> dict:
         """Get current status of the command queue."""
@@ -49,7 +47,7 @@ class RobotController:
             "robot_backend": type(self.robot).__name__,
             **self._queue.get_status(),
         }
-    
+
     def shutdown(self) -> None:
         """Called on app shutdown to stop the worker thread and robot."""
         logger.debug("shutdown called")
@@ -65,7 +63,7 @@ class RobotController:
                 shutdown_robot()
             except Exception as exc:
                 logger.warning("robot.shutdown failed: %s", exc)
-    
+
     def health(self) -> dict:
         """Quick health info for debugging."""
         logger.debug("health called")
@@ -86,7 +84,7 @@ class RobotController:
             "robot_backend": type(self.robot).__name__,
             "battery": battery_pct,
         }
-    
+
     def take_photo(self) -> str:
         logger.debug("take_photo called")
         get_photo = getattr(self.robot, "get_last_image_base64", None)
@@ -128,7 +126,10 @@ class RobotController:
     def get_nav_status(self) -> dict:
         get_nav_status = getattr(self.robot, "get_last_nav_status", None)
         if not callable(get_nav_status):
-            return {"available": False, "reason": "Navigation status not supported by this backend"}
+            return {
+                "available": False,
+                "reason": "Navigation status not supported by this backend",
+            }
 
         msg = get_nav_status()
         if msg is None:
@@ -137,9 +138,11 @@ class RobotController:
         status_list = getattr(msg, "status_list", []) or []
         simplified = []
         for status in status_list:
-            simplified.append({
-                "status": getattr(status, "status", None),
-            })
+            simplified.append(
+                {
+                    "status": getattr(status, "status", None),
+                }
+            )
 
         return {
             "available": True,
@@ -150,7 +153,10 @@ class RobotController:
     def get_battery(self) -> dict:
         get_battery = getattr(self.robot, "get_last_battery", None)
         if not callable(get_battery):
-            return {"available": False, "reason": "Battery not supported by this backend"}
+            return {
+                "available": False,
+                "reason": "Battery not supported by this backend",
+            }
 
         msg = get_battery()
         if msg is None:
@@ -167,7 +173,10 @@ class RobotController:
     def get_camera_info(self) -> dict:
         get_image = getattr(self.robot, "get_last_image", None)
         if not callable(get_image):
-            return {"available": False, "reason": "Camera not supported by this backend"}
+            return {
+                "available": False,
+                "reason": "Camera not supported by this backend",
+            }
 
         msg = get_image()
         if msg is None:
@@ -183,23 +192,28 @@ class RobotController:
     def get_dock_status(self) -> dict:
         get_docking_status = getattr(self.robot, "get_docking_status", None)
         if not callable(get_docking_status):
-            return {"available": False, "reason": "Docking not supported by this backend"}
+            return {
+                "available": False,
+                "reason": "Docking not supported by this backend",
+            }
 
         try:
             return get_docking_status()
         except Exception as exc:
             return {"available": False, "reason": str(exc)}
-    
+
     """Internal methods for executing commands and stopping the robot."""
 
-    def _execute_one_command(self, command_text: str, cancel_event: threading.Event) -> None:
+    def _execute_one_command(
+        self, command_text: str, cancel_event: threading.Event
+    ) -> None:
         """Execute a single command.
         This runs in the worker thread."""
         logger.debug("_execute_one_command called: %s", command_text)
         # If a stop has been requested before we start, do nothing.
         if cancel_event.is_set():
-            return  
-        
+            return
+
         try:
             cmd = parse_command(command_text)
 
@@ -209,8 +223,9 @@ class RobotController:
 
             self.robot.execute_command(cmd, cancel_event)
         except Exception as e:
-            logger.error("Error executing command '%s': %s", command_text, str(e), exc_info=True)
-    
+            logger.error(
+                "Error executing command '%s': %s", command_text, str(e), exc_info=True
+            )
 
     def _stop_robot_immediately(self) -> None:
         """Stop the robot immediately.
@@ -268,10 +283,10 @@ class RobotController:
 
                 time.sleep(0.2)
 
-        self._state_thread = threading.Thread(target=_loop, name="StatePublisher", daemon=True)
+        self._state_thread = threading.Thread(
+            target=_loop, name="StatePublisher", daemon=True
+        )
         self._state_thread.start()
-    
-
 
 
 # Global instance

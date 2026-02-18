@@ -30,7 +30,12 @@ def _pick_player() -> list[str] | None:
 
 
 def say(text: str, lang: str | None = None) -> None:
-    enabled = (os.getenv("TTS_ENABLED", "1") or "1").strip().lower() in {"1", "true", "yes", "on"}
+    enabled = (os.getenv("TTS_ENABLED", "1") or "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
     if not enabled:
         logger.info("TTS disabled (TTS_ENABLED=0): %s", text)
         return
@@ -49,7 +54,9 @@ def say(text: str, lang: str | None = None) -> None:
         if shutil.which(pico):
             player = _pick_player()
             if player is None:
-                raise FileNotFoundError("No audio player found (paplay/aplay). Set TTS_PLAYER.")
+                raise FileNotFoundError(
+                    "No audio player found (paplay/aplay). Set TTS_PLAYER."
+                )
 
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 wav_path = tmp.name
@@ -75,7 +82,11 @@ def say(text: str, lang: str | None = None) -> None:
         raise FileNotFoundError("spd-say not found")
 
     # 3) espeak (plays itself)
-    espeak = "espeak-ng" if shutil.which("espeak-ng") else ("espeak" if shutil.which("espeak") else None)
+    espeak = (
+        "espeak-ng"
+        if shutil.which("espeak-ng")
+        else ("espeak" if shutil.which("espeak") else None)
+    )
     if engine in {"auto", "espeak", "espeak-ng"} and espeak:
         # Map de-DE -> de for espeak
         voice = "de" if lang.lower().startswith("de") else lang

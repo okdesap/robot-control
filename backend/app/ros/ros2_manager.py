@@ -62,10 +62,14 @@ class ROS2Publisher:
         self._executor.add_node(self._node)
 
         # QoS can be tuned via env to match the robot's subscriber.
-        reliability_env = (os.getenv("CMD_VEL_RELIABILITY", "best_effort") or "best_effort").lower()
-        durability_env = (os.getenv("CMD_VEL_DURABILITY", "volatile") or "volatile").lower()
+        reliability_env = (
+            os.getenv("CMD_VEL_RELIABILITY", "best_effort") or "best_effort"
+        ).lower()
+        durability_env = (
+            os.getenv("CMD_VEL_DURABILITY", "volatile") or "volatile"
+        ).lower()
         depth_env = int(os.getenv("CMD_VEL_DEPTH", "10") or "10")
-   
+
         robot_backend = os.getenv("ROBOT_BACKEND", "sim").lower()
         if robot_backend == "sim":
             reliability_env = "reliable"
@@ -85,7 +89,9 @@ class ROS2Publisher:
             depth=depth_env,
         )
 
-        self._pub = self._node.create_publisher(self._msg_type, self._topic, qos_profile)
+        self._pub = self._node.create_publisher(
+            self._msg_type, self._topic, qos_profile
+        )
 
         self._ensure_spinning()
 
@@ -100,7 +106,9 @@ class ROS2Publisher:
                 while not self._stop_event.is_set() and self._rclpy.ok():
                     self._executor.spin_once(timeout_sec=0.1)
 
-            self._spin_thread = threading.Thread(target=_spin, name="ros2-spin", daemon=True)
+            self._spin_thread = threading.Thread(
+                target=_spin, name="ros2-spin", daemon=True
+            )
             self._spin_thread.start()
 
     def shutdown(self) -> None:
@@ -161,8 +169,12 @@ class ROS2Publisher:
         if not isinstance(qos, int):
             return self._node.create_subscription(msg_type, topic, callback, qos)
 
-        reliability_env = (os.getenv("ROS_SUB_RELIABILITY", "best_effort") or "best_effort").lower()
-        durability_env = (os.getenv("ROS_SUB_DURABILITY", "volatile") or "volatile").lower()
+        reliability_env = (
+            os.getenv("ROS_SUB_RELIABILITY", "best_effort") or "best_effort"
+        ).lower()
+        durability_env = (
+            os.getenv("ROS_SUB_DURABILITY", "volatile") or "volatile"
+        ).lower()
 
         rel_map = {
             "best_effort": ReliabilityPolicy.BEST_EFFORT,
@@ -187,6 +199,8 @@ _publishers: dict[tuple[str, object], ROS2Publisher] = {}
 def get_publisher(topic_name: str, msg_type) -> ROS2Publisher:
     key = (topic_name, msg_type)
     if key not in _publishers:
-        print(f"Creating new ROS2Publisher for topic: {topic_name} with msg_type: {msg_type}")
+        print(
+            f"Creating new ROS2Publisher for topic: {topic_name} with msg_type: {msg_type}"
+        )
         _publishers[key] = ROS2Publisher(topic=topic_name, msg_type=msg_type)
     return _publishers[key]

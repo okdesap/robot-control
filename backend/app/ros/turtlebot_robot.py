@@ -35,25 +35,33 @@ class TurtleBotRobot(RosRobotBase):
     MAP_TOPIC = "/map"
     NAV_STATUS_TOPIC = "/navigate_to_pose/_action/status"
 
-    NAV2_ACTIVE_TIMEOUT_S = 2.0  # Reduced from 15.0 to fail faster if Nav2 is not available
+    NAV2_ACTIVE_TIMEOUT_S = (
+        2.0  # Reduced from 15.0 to fail faster if Nav2 is not available
+    )
     NAV2_TASK_TIMEOUT_S = 180.0
     DOCK_TASK_TIMEOUT_S = 20.0  # Keep queue responsive if docking stack isn't ready
 
     def __init__(self) -> None:
         cmd_vel_topic = os.getenv("CMD_VEL_TOPIC", self.CMD_VEL_TOPIC)
-        cmd_vel_type = (os.getenv("CMD_VEL_MSG_TYPE", "TwistStamped") or "TwistStamped").strip()
+        cmd_vel_type = (
+            os.getenv("CMD_VEL_MSG_TYPE", "TwistStamped") or "TwistStamped"
+        ).strip()
 
         # Some TurtleBot/Create3 stacks consume Twist (unstamped) on a separate topic.
         # To avoid "published but robot doesn't move" situations, we can optionally
         # publish the same velocities to an additional Twist topic.
         self._publish_unstamped = self._env_bool("CMD_VEL_PUBLISH_UNSTAMPED", True)
-        self._cmd_vel_unstamped_topic = (os.getenv("CMD_VEL_UNSTAMPED_TOPIC", "/cmd_vel_unstamped") or "/cmd_vel_unstamped").strip()
+        self._cmd_vel_unstamped_topic = (
+            os.getenv("CMD_VEL_UNSTAMPED_TOPIC", "/cmd_vel_unstamped")
+            or "/cmd_vel_unstamped"
+        ).strip()
 
         # Important: ROS2 requires publisher/subscriber message types to match exactly.
         # TurtleBot4 uses TwistStamped on /cmd_vel with BEST_EFFORT QoS.
         msg_type: Any
         if cmd_vel_type.lower() in {"twiststamped", "stamped"}:
             from geometry_msgs.msg import TwistStamped  # type: ignore
+
             msg_type = TwistStamped
             self._cmd_vel_kind = "TwistStamped"
         else:
@@ -65,7 +73,10 @@ class TurtleBotRobot(RosRobotBase):
         if self._publish_unstamped:
             try:
                 from geometry_msgs.msg import Twist as TwistMsg  # type: ignore
-                self.register_publisher("cmd_vel_unstamped", self._cmd_vel_unstamped_topic, TwistMsg)
+
+                self.register_publisher(
+                    "cmd_vel_unstamped", self._cmd_vel_unstamped_topic, TwistMsg
+                )
             except Exception:
                 # If geometry_msgs is unavailable, RosRobotBase will already be unusable.
                 self._publish_unstamped = False
@@ -82,13 +93,17 @@ class TurtleBotRobot(RosRobotBase):
 
         try:
             from nav_msgs.msg import Odometry
+
             self.register_subscription("odom", self.ODOM_TOPIC, Odometry, self._on_odom)
         except Exception:
             pass
 
         try:
             from sensor_msgs.msg import BatteryState
-            self.register_subscription("battery", self.BATTERY_TOPIC, BatteryState, self._on_battery)
+
+            self.register_subscription(
+                "battery", self.BATTERY_TOPIC, BatteryState, self._on_battery
+            )
         except Exception:
             pass
 
@@ -96,21 +111,33 @@ class TurtleBotRobot(RosRobotBase):
         oakd_topic = os.getenv("OAKD_CAMERA_TOPIC", self.OAKD_CAMERA_TOPIC)
         try:
             from sensor_msgs.msg import Image
+
             self.register_subscription("camera", camera_topic, Image, self._on_image)
             if oakd_topic and oakd_topic != camera_topic:
-                self.register_subscription("camera_oakd", oakd_topic, Image, self._on_image)
+                self.register_subscription(
+                    "camera_oakd", oakd_topic, Image, self._on_image
+                )
         except Exception:
             pass
 
         try:
             from nav_msgs.msg import OccupancyGrid
-            self.register_subscription("map", self.MAP_TOPIC, OccupancyGrid, self._on_map)
+
+            self.register_subscription(
+                "map", self.MAP_TOPIC, OccupancyGrid, self._on_map
+            )
         except Exception:
             pass
 
         try:
             from action_msgs.msg import GoalStatusArray
-            self.register_subscription("nav_status", self.NAV_STATUS_TOPIC, GoalStatusArray, self._on_nav_status)
+
+            self.register_subscription(
+                "nav_status",
+                self.NAV_STATUS_TOPIC,
+                GoalStatusArray,
+                self._on_nav_status,
+            )
         except Exception:
             pass
 
@@ -125,10 +152,12 @@ class TurtleBotRobot(RosRobotBase):
             if self._navigator is not None:
                 return self._navigator
             try:
-                from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
+                from turtlebot4_navigation.turtlebot4_navigator import (
+                    TurtleBot4Navigator,
+                )
             except Exception as exc:
                 raise RuntimeError(
-                    "Nav2 navigator not available. Install turtlebot4_navigation and Nav2." 
+                    "Nav2 navigator not available. Install turtlebot4_navigation and Nav2."
                     f" Original error: {exc}"
                 )
             self._navigator = TurtleBot4Navigator()
@@ -319,9 +348,17 @@ class TurtleBotRobot(RosRobotBase):
                 )
                 if ok:
                     return {"available": True, "mode": "create3_action"}
-                return {"available": False, "mode": "create3_action", "reason": "Dock/Undock action server not available"}
+                return {
+                    "available": False,
+                    "mode": "create3_action",
+                    "reason": "Dock/Undock action server not available",
+                }
             except Exception as exc:
-                return {"available": False, "mode": "create3_action", "reason": str(exc)}
+                return {
+                    "available": False,
+                    "mode": "create3_action",
+                    "reason": str(exc),
+                }
 
         # Fallback: Nav2 navigator-based docking (requires Nav2/AMCL).
         try:
@@ -329,13 +366,19 @@ class TurtleBotRobot(RosRobotBase):
         except Exception as exc:
             return {"available": False, "mode": "nav2", "reason": str(exc)}
 
-        active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
+        active_timeout = self._env_float(
+            "NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S
+        )
         quick_timeout = min(2.0, float(active_timeout))
 
         try:
             self._wait_for_nav2_active(navigator, None, quick_timeout)
         except Exception as exc:
-            return {"available": False, "mode": "nav2", "reason": f"Nav2 not active: {exc}"}
+            return {
+                "available": False,
+                "mode": "nav2",
+                "reason": f"Nav2 not active: {exc}",
+            }
 
         return {"available": True, "mode": "nav2"}
 
@@ -348,12 +391,16 @@ class TurtleBotRobot(RosRobotBase):
 
         node = self._publisher().get_node()
         dock_name = (os.getenv("CREATE3_DOCK_ACTION", "/dock") or "/dock").strip()
-        undock_name = (os.getenv("CREATE3_UNDOCK_ACTION", "/undock") or "/undock").strip()
+        undock_name = (
+            os.getenv("CREATE3_UNDOCK_ACTION", "/undock") or "/undock"
+        ).strip()
 
         self._dock_client = ActionClient(node, Dock, dock_name)
         self._undock_client = ActionClient(node, Undock, undock_name)
 
-    def _wait_future(self, future, cancel_event: threading.Event | None, timeout_s: float):
+    def _wait_future(
+        self, future, cancel_event: threading.Event | None, timeout_s: float
+    ):
         start = time.time()
         while not future.done():
             if cancel_event is not None and cancel_event.is_set():
@@ -363,7 +410,9 @@ class TurtleBotRobot(RosRobotBase):
             time.sleep(0.05)
         return future.result()
 
-    def _create3_dock_action(self, kind: str, cancel_event: threading.Event | None = None) -> None:
+    def _create3_dock_action(
+        self, kind: str, cancel_event: threading.Event | None = None
+    ) -> None:
         self._ensure_dock_clients()
 
         timeout_s = self._env_float("DOCK_ACTION_TIMEOUT_S", 60.0)
@@ -372,10 +421,12 @@ class TurtleBotRobot(RosRobotBase):
         if kind == "dock":
             client = self._dock_client
             from irobot_create_msgs.action import Dock  # type: ignore
+
             goal = Dock.Goal()
         else:
             client = self._undock_client
             from irobot_create_msgs.action import Undock  # type: ignore
+
             goal = Undock.Goal()
 
         if not client.wait_for_server(timeout_sec=float(server_timeout_s)):
@@ -389,7 +440,9 @@ class TurtleBotRobot(RosRobotBase):
         result_fut = goal_handle.get_result_async()
         self._wait_future(result_fut, cancel_event, timeout_s=timeout_s)
 
-    def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
+    def execute_command(
+        self, cmd: Command, cancel_event: threading.Event | None = None
+    ):
         if isinstance(cmd, StopCommand):
             self.stop()
             return
@@ -424,16 +477,24 @@ class TurtleBotRobot(RosRobotBase):
             raise ValueError(f"Unsupported command: {type(cmd).__name__}")
 
         # Publish the movement command
-        self._publish_cmd_vel_for(linear_x=linear_x, angular_z=angular_z, duration_s=duration_s, cancel_event=cancel_event)
+        self._publish_cmd_vel_for(
+            linear_x=linear_x,
+            angular_z=angular_z,
+            duration_s=duration_s,
+            cancel_event=cancel_event,
+        )
 
     def stop(self):
         msg = self._new_cmd_vel_msg()
         self._set_cmd_vel(msg, linear_x=0.0, angular_z=0.0)
         self._publish(msg)
 
-        if self._publish_unstamped and "cmd_vel_unstamped" in getattr(self, "_publishers", {}):
+        if self._publish_unstamped and "cmd_vel_unstamped" in getattr(
+            self, "_publishers", {}
+        ):
             try:
                 from geometry_msgs.msg import Twist as TwistMsg  # type: ignore
+
                 t = TwistMsg()
                 t.linear.x = 0.0
                 t.angular.z = 0.0
@@ -452,9 +513,12 @@ class TurtleBotRobot(RosRobotBase):
         self._set_cmd_vel(msg, linear_x=linear_x, angular_z=angular_z)
 
         unstamped = None
-        if self._publish_unstamped and "cmd_vel_unstamped" in getattr(self, "_publishers", {}):
+        if self._publish_unstamped and "cmd_vel_unstamped" in getattr(
+            self, "_publishers", {}
+        ):
             try:
                 from geometry_msgs.msg import Twist as TwistMsg  # type: ignore
+
                 unstamped = TwistMsg()
                 unstamped.linear.x = float(linear_x)
                 unstamped.angular.z = float(angular_z)
@@ -482,6 +546,7 @@ class TurtleBotRobot(RosRobotBase):
     def _new_cmd_vel_msg(self):
         if getattr(self, "_cmd_vel_kind", "Twist") == "TwistStamped":
             from geometry_msgs.msg import TwistStamped  # type: ignore
+
             return TwistStamped()
         return Twist()
 
@@ -494,9 +559,13 @@ class TurtleBotRobot(RosRobotBase):
             msg.linear.x = float(linear_x)
             msg.angular.z = float(angular_z)
 
-    def _navigate_to_pose(self, cmd: NavigateToPoseCommand, cancel_event: threading.Event | None = None) -> None:
+    def _navigate_to_pose(
+        self, cmd: NavigateToPoseCommand, cancel_event: threading.Event | None = None
+    ) -> None:
         navigator = self._get_navigator()
-        active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
+        active_timeout = self._env_float(
+            "NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S
+        )
         task_timeout = self._env_float("NAV2_TASK_TIMEOUT_S", self.NAV2_TASK_TIMEOUT_S)
         self._wait_for_nav2_active(navigator, cancel_event, active_timeout)
         goal_pose = navigator.getPoseStamped([cmd.x, cmd.y], cmd.yaw_deg)
@@ -512,24 +581,32 @@ class TurtleBotRobot(RosRobotBase):
                 return
             except Exception as exc:
                 import logging
+
                 logging.getLogger("backend.core.turtlebot").warning(
                     "Create3 dock action failed, falling back: %s", str(exc)
                 )
 
         try:
             navigator = self._get_navigator()
-            active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
-            task_timeout = self._env_float("DOCK_TASK_TIMEOUT_S", self.DOCK_TASK_TIMEOUT_S)
+            active_timeout = self._env_float(
+                "NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S
+            )
+            task_timeout = self._env_float(
+                "DOCK_TASK_TIMEOUT_S", self.DOCK_TASK_TIMEOUT_S
+            )
 
             # Dock/undock in TurtleBot4Navigator typically depends on Nav2/AMCL.
             # If Nav2 isn't active, don't block the command queue for minutes.
             require_nav2 = self._env_bool("DOCK_REQUIRE_NAV2", False)
             try:
-                self._wait_for_nav2_active(navigator, cancel_event, min(2.0, float(active_timeout)))
+                self._wait_for_nav2_active(
+                    navigator, cancel_event, min(2.0, float(active_timeout))
+                )
             except Exception as exc:
                 if require_nav2:
                     raise
                 import logging
+
                 logging.getLogger("backend.core.turtlebot").warning(
                     "Dock skipped because Nav2 is not active: %s", str(exc)
                 )
@@ -539,8 +616,11 @@ class TurtleBotRobot(RosRobotBase):
             self._wait_task_complete(navigator, cancel_event, task_timeout)
         except Exception as e:
             import logging
+
             logger = logging.getLogger("backend.core.turtlebot")
-            logger.warning("Dock command failed (Nav2 may not be available): %s", str(e))
+            logger.warning(
+                "Dock command failed (Nav2 may not be available): %s", str(e)
+            )
             # Don't raise - just log and continue
 
     def _undock(self, cancel_event: threading.Event | None = None) -> None:
@@ -551,22 +631,30 @@ class TurtleBotRobot(RosRobotBase):
                 return
             except Exception as exc:
                 import logging
+
                 logging.getLogger("backend.core.turtlebot").warning(
                     "Create3 undock action failed, falling back: %s", str(exc)
                 )
 
         try:
             navigator = self._get_navigator()
-            active_timeout = self._env_float("NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S)
-            task_timeout = self._env_float("DOCK_TASK_TIMEOUT_S", self.DOCK_TASK_TIMEOUT_S)
+            active_timeout = self._env_float(
+                "NAV2_ACTIVE_TIMEOUT_S", self.NAV2_ACTIVE_TIMEOUT_S
+            )
+            task_timeout = self._env_float(
+                "DOCK_TASK_TIMEOUT_S", self.DOCK_TASK_TIMEOUT_S
+            )
 
             require_nav2 = self._env_bool("DOCK_REQUIRE_NAV2", False)
             try:
-                self._wait_for_nav2_active(navigator, cancel_event, min(2.0, float(active_timeout)))
+                self._wait_for_nav2_active(
+                    navigator, cancel_event, min(2.0, float(active_timeout))
+                )
             except Exception as exc:
                 if require_nav2:
                     raise
                 import logging
+
                 logging.getLogger("backend.core.turtlebot").warning(
                     "Undock skipped because Nav2 is not active: %s", str(exc)
                 )
@@ -576,6 +664,9 @@ class TurtleBotRobot(RosRobotBase):
             self._wait_task_complete(navigator, cancel_event, task_timeout)
         except Exception as e:
             import logging
+
             logger = logging.getLogger("backend.core.turtlebot")
-            logger.warning("Undock command failed (Nav2 may not be available): %s", str(e))
+            logger.warning(
+                "Undock command failed (Nav2 may not be available): %s", str(e)
+            )
             # Don't raise - just log and continue

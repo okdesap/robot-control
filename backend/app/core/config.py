@@ -17,11 +17,12 @@ class _UnavailableRobotBackend(RobotInterface):
 
 def get_robot_backend():
     backend = os.getenv("ROBOT_BACKEND", "sim")
-    
+
     """Factory: return the selected backend instance."""
     if backend == "sim":
         try:
             from app.ros.turtlesim_robot import TurtlesimRobot
+
             return TurtlesimRobot()
         except Exception as exc:
             return _UnavailableRobotBackend(
@@ -32,6 +33,7 @@ def get_robot_backend():
     elif backend == "real":
         try:
             from app.ros.turtlebot_robot import TurtleBotRobot
+
             return TurtleBotRobot()
         except Exception as exc:
             return _UnavailableRobotBackend(

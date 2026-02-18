@@ -27,9 +27,11 @@ logger = logging.getLogger("backend.core.command_queue")
 @dataclass(frozen=True)
 class QueuedCommand:
     """A command waiting in the queue (or currently executing)."""
+
     command_id: str
     command_text: str
     timestamp: float
+
 
 @dataclass
 class QueueStatus:
@@ -47,16 +49,17 @@ class QueueStatus:
 class CommandQueueManager:
     """Producer/consumer queue manager with a single worker thread.
 
-        Requires two callables:
-            - execute_fn(command_text, cancel_event): executes one command
-            - stop_fn(): immediate stop for the robot (used for emergency stop)
+    Requires two callables:
+        - execute_fn(command_text, cancel_event): executes one command
+        - stop_fn(): immediate stop for the robot (used for emergency stop)
 
-        The queue manager handles:
-            - ordering (FIFO)
-            - threading
-            - status tracking
-            - cancellation requests (via cancel_event)
-        """
+    The queue manager handles:
+        - ordering (FIFO)
+        - threading
+        - status tracking
+        - cancellation requests (via cancel_event)
+    """
+
     def __init__(
         self,
         execute_fn: Callable[[str, threading.Event], None],
@@ -75,7 +78,7 @@ class CommandQueueManager:
         self._status = QueueStatus()
         self._status_lock = threading.RLock()
 
-        self._worker_thread : threading.Thread | None = None
+        self._worker_thread: threading.Thread | None = None
         self._shutdown_event = threading.Event()
         self._cancel_current_event = threading.Event()
 
@@ -86,15 +89,14 @@ class CommandQueueManager:
         with self._status_lock:
             if self._worker_thread is not None and self._worker_thread.is_alive():
                 return  # Already running
-            
+
             # Ensure shutdown event is cleared.
             self._shutdown_event.clear()
 
             # Start the worker thread.
             self._worker_thread = threading.Thread(
-                target=self._worker_loop, 
-                name="CommandQueueWorker", 
-                daemon=True)
+                target=self._worker_loop, name="CommandQueueWorker", daemon=True
+            )
             self._worker_thread.start()
 
     def shutdown(self, timeout_s: float = 2.0) -> None:
@@ -124,13 +126,10 @@ class CommandQueueManager:
         logger.debug("enqueue called: %s", command_text)
         cmd_id = str(uuid.uuid4())
         queued_cmd = QueuedCommand(
-            command_id=cmd_id,
-            command_text=command_text,
-            timestamp=time.time()
+            command_id=cmd_id, command_text=command_text, timestamp=time.time()
         )
         # Put into queue (may block if full).
         self._queue.put_nowait(queued_cmd)
-        
 
         # Update status.
         with self._status_lock:
@@ -141,15 +140,17 @@ class CommandQueueManager:
 
         self._emit_status(status_snapshot)
 
-        self._emit_event({
-            "type": "queued",
-            "command_id": queued_cmd.command_id,
-            "command": queued_cmd.command_text,
-            "timestamp": queued_cmd.timestamp,
-        })
+        self._emit_event(
+            {
+                "type": "queued",
+                "command_id": queued_cmd.command_id,
+                "command": queued_cmd.command_text,
+                "timestamp": queued_cmd.timestamp,
+            }
+        )
 
         return queued_cmd.command_id
-    
+
     def emergency_stop(self, clear_queue: bool = True) -> None:
         """Cancel the current command and optionally clear the queue.
         also calls the stop_fn to halt the robot immediately.
@@ -172,12 +173,14 @@ class CommandQueueManager:
         # Update status.
         with self._status_lock:
             self._status.queue_length = self._queue.qsize()
-            if self._status.current_command_id is None and self._status.state != "stopped":
+            if (
+                self._status.current_command_id is None
+                and self._status.state != "stopped"
+            ):
                 self._status.state = "idle"
             status_snapshot = asdict(self._status)
 
         self._emit_status(status_snapshot)
-    
 
     def get_status(self) -> dict:
         """Return current status as a dictionary."""
@@ -209,8 +212,9 @@ class CommandQueueManager:
             self._on_event(event)
         except Exception:
             pass
-        
+
     """Internal methods."""
+
     def _drain_queue(self) -> None:
         """Remove all pending commands from the queue."""
         while not self._queue.empty():
@@ -219,7 +223,7 @@ class CommandQueueManager:
                 self._queue.task_done()
             except queue.Empty:
                 break
-    
+
     def _worker_loop(self) -> None:
         """Background worker thread loop.
         - Waits for commands in the queue.
@@ -231,15 +235,18 @@ class CommandQueueManager:
             try:
                 # Wait for the next command.
                 queued_cmd = self._queue.get(timeout=0.5)
-                
+
             except queue.Empty:
                 with self._status_lock:
-                    if self._status.current_command_id is None and self._status.state != "stopped":
+                    if (
+                        self._status.current_command_id is None
+                        and self._status.state != "stopped"
+                    ):
                         self._status.state = "idle"
                         self._status.queue_length = self._queue.qsize()
                         status_snapshot = asdict(self._status)
                 self._emit_status(status_snapshot)
-                continue  
+                continue
 
             # Update status to busy.
             with self._status_lock:
@@ -256,12 +263,14 @@ class CommandQueueManager:
             self._cancel_current_event.clear()
 
             start_ts = time.time()
-            self._emit_event({
-                "type": "started",
-                "command_id": queued_cmd.command_id,
-                "command": queued_cmd.command_text,
-                "timestamp_start": start_ts,
-            })
+            self._emit_event(
+                {
+                    "type": "started",
+                    "command_id": queued_cmd.command_id,
+                    "command": queued_cmd.command_text,
+                    "timestamp_start": start_ts,
+                }
+            )
 
             # Execute the command.
             result = "ok"
@@ -270,7 +279,7 @@ class CommandQueueManager:
                 self._execute_fn(queued_cmd.command_text, self._cancel_current_event)
                 if self._cancel_current_event.is_set():
                     result = "cancelled"
-    
+
                 with self._status_lock:
                     self._status.processed_count += 1
                     self._status.last_error = None
@@ -285,7 +294,6 @@ class CommandQueueManager:
 
             finally:
                 self._queue.task_done()
-               
 
             # Clear current command info.
             with self._status_lock:
@@ -301,12 +309,14 @@ class CommandQueueManager:
             self._emit_status(status_snapshot)
 
             end_ts = time.time()
-            self._emit_event({
-                "type": "finished",
-                "command_id": queued_cmd.command_id,
-                "command": queued_cmd.command_text,
-                "timestamp_start": start_ts,
-                "timestamp_end": end_ts,
-                "duration_s": round(end_ts - start_ts, 4),
-                "result": result,
-            })
+            self._emit_event(
+                {
+                    "type": "finished",
+                    "command_id": queued_cmd.command_id,
+                    "command": queued_cmd.command_text,
+                    "timestamp_start": start_ts,
+                    "timestamp_end": end_ts,
+                    "duration_s": round(end_ts - start_ts, 4),
+                    "result": result,
+                }
+            )

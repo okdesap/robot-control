@@ -55,7 +55,9 @@ _live_state: dict[str, object] = {
 def _set_live_event(text: str, phase: str | None = None) -> None:
     with _live_lock:
         try:
-            _live_state["last_event_seq"] = int(_live_state.get("last_event_seq", 0)) + 1
+            _live_state["last_event_seq"] = (
+                int(_live_state.get("last_event_seq", 0)) + 1
+            )
         except Exception:
             _live_state["last_event_seq"] = 1
         _live_state["last_event_text"] = text
@@ -111,15 +113,42 @@ def execute_stt_text(body: STTTextRequest):
         if intent_mode == "parse":
             intent = rule_intent
         else:
+            llm_intents: list[str] = []
             try:
-                intent = function_calling(body.text)
+                llm_intents = function_calling(body.text)
             except Exception as exc:
-                logger.warning("function_calling failed, fallback to parse_intent: %s", exc)
-                intent = None
+                logger.warning(
+                    "function_calling failed, fallback to parse_intent: %s", exc
+                )
+                llm_intents = []
 
-            if not intent:
+            # If the LLM returns multiple actions, enqueue all and respond with the first.
+            if llm_intents:
+                if len(llm_intents) == 1:
+                    intent = llm_intents[0]
+                else:
+                    ids: list[str] = []
+                    for cmd_text in llm_intents:
+                        try:
+                            ids.append(controller.enqueue_command(cmd_text))
+                        except Exception as exc:
+                            logger.warning(
+                                "Failed to enqueue LLM intent '%s': %s", cmd_text, exc
+                            )
+
+                    first = llm_intents[0]
+                    reply = _reply_for_intent(first)
+                    say_async(reply)
+                    return {
+                        "status": "accepted",
+                        "intent": first,
+                        "command_id": ids[0] if ids else None,
+                        "command_ids": ids,
+                        "reply": reply,
+                    }
+            else:
                 intent = rule_intent
-    
+
     if not intent:
         raise HTTPException(status_code=400, detail="No intent derived from text")
 
@@ -130,7 +159,9 @@ def execute_stt_text(body: STTTextRequest):
             say_async(reply)
             with _live_lock:
                 try:
-                    _live_state["last_photo_seq"] = int(_live_state.get("last_photo_seq", 0)) + 1
+                    _live_state["last_photo_seq"] = (
+                        int(_live_state.get("last_photo_seq", 0)) + 1
+                    )
                 except Exception:
                     _live_state["last_photo_seq"] = 1
                 _live_state["last_photo"] = photo
@@ -187,23 +218,40 @@ def execute_stt_text(body: STTTextRequest):
     command_id = controller.enqueue_command(intent)
     reply = _reply_for_intent(intent)
     say_async(reply)
-    return {"status": "accepted", "intent": intent, "command_id": command_id, "reply": reply}
+    return {
+        "status": "accepted",
+        "intent": intent,
+        "command_id": command_id,
+        "reply": reply,
+    }
 
 
 # keep the CLI streaming demo for local testing without affecting FastAPI startup.
-def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event: threading.Event | None = None) -> None:
+def _run_live_stream(
+    device: str = "hw:3",
+    sample_rate: int = 16000,
+    stop_event: threading.Event | None = None,
+) -> None:
     import json
     import subprocess
     import time
     import vosk
     import requests
 
-    model_path = os.getenv("STT_MODEL_PATH", "/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21")
+    model_path = os.getenv(
+        "STT_MODEL_PATH", "/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21"
+    )
     model = vosk.Model(model_path)
     recognizer = vosk.KaldiRecognizer(model, sample_rate)
 
-    base = (os.getenv("BACKEND_BASE_URL", "http://127.0.0.1:8000") or "http://127.0.0.1:8000").rstrip("/")
-    endpoint = os.getenv("STT_HTTP_ENDPOINT", f"{base}/api/v1/stt/execute") or f"{base}/api/v1/stt/execute"
+    base = (
+        os.getenv("BACKEND_BASE_URL", "http://127.0.0.1:8000")
+        or "http://127.0.0.1:8000"
+    ).rstrip("/")
+    endpoint = (
+        os.getenv("STT_HTTP_ENDPOINT", f"{base}/api/v1/stt/execute")
+        or f"{base}/api/v1/stt/execute"
+    )
 
     # WAKE WORD CONFIG
     # Wake word phrase (configured via WAKE_WORD).
@@ -259,7 +307,11 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event:
         time.sleep(0.25)
         if p.poll() is not None:
             try:
-                err = (p.stderr.read().decode("utf-8", errors="replace") if p.stderr else "").strip()
+                err = (
+                    p.stderr.read().decode("utf-8", errors="replace")
+                    if p.stderr
+                    else ""
+                ).strip()
             except Exception:
                 err = ""
             last_err = err or f"arecord exited with code {p.returncode}"
@@ -314,7 +366,10 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event:
                         awake = True
                         awake_until = time.time() + awake_timeout_s
                         print("Wake word detected. Listening for command...")
-                        _set_live_event("Wake Word erkannt. Ich führe den nächsten Befehl aus.", phase="awake")
+                        _set_live_event(
+                            "Wake Word erkannt. Ich führe den nächsten Befehl aus.",
+                            phase="awake",
+                        )
                     continue
 
                 # Awake: send recognized text to backend (but ignore pure wake-word-only utterances).
@@ -333,7 +388,9 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event:
                             payload = res.json()
                         except Exception:
                             payload = {}
-                        reply = payload.get("reply") if isinstance(payload, dict) else None
+                        reply = (
+                            payload.get("reply") if isinstance(payload, dict) else None
+                        )
                         if reply:
                             with _live_lock:
                                 _live_state["last_reply"] = reply
@@ -349,7 +406,9 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event:
                             )
                     except Exception as exc:
                         print(f"HTTP failed: {exc}")
-                        _set_live_event(f"Backend-Fehler bei Sprachbefehl: {exc}", phase="listening")
+                        _set_live_event(
+                            f"Backend-Fehler bei Sprachbefehl: {exc}", phase="listening"
+                        )
             else:
                 partial = json.loads(recognizer.PartialResult())
                 ptxt = (partial.get("partial", "") or "").strip()
@@ -365,10 +424,13 @@ def _run_live_stream(device: str = "hw:3", sample_rate: int = 16000, stop_event:
                     awake = True
                     awake_until = time.time() + awake_timeout_s
                     print("\nWake word detected (partial). Listening for command...")
-                    _set_live_event("Wake Word erkannt. Ich führe den nächsten Befehl aus.", phase="awake")
+                    _set_live_event(
+                        "Wake Word erkannt. Ich führe den nächsten Befehl aus.",
+                        phase="awake",
+                    )
 
                     # reset to reduce chance of sending the wake word as the command.
-                    # Vosk has a recognizer reset in the API; python binding may expose it as Reset(). 
+                    # Vosk has a recognizer reset in the API; python binding may expose it as Reset().
                     try:
                         recognizer.Reset()
                     except Exception:
@@ -412,7 +474,9 @@ def live_start(body: STTLiveStartRequest | None = None):
             return {"status": "already_running", **_live_status_payload()}
 
         device = (req.device or os.getenv("STT_DEVICE") or "").strip() or None
-        sample_rate = int(req.sample_rate or int(os.getenv("STT_SAMPLE_RATE", "16000") or "16000"))
+        sample_rate = int(
+            req.sample_rate or int(os.getenv("STT_SAMPLE_RATE", "16000") or "16000")
+        )
 
         _live_stop_event.clear()
         _live_state["running"] = True
@@ -424,7 +488,11 @@ def live_start(body: STTLiveStartRequest | None = None):
 
         def _runner() -> None:
             try:
-                _run_live_stream(device=device or "hw:3", sample_rate=sample_rate, stop_event=_live_stop_event)
+                _run_live_stream(
+                    device=device or "hw:3",
+                    sample_rate=sample_rate,
+                    stop_event=_live_stop_event,
+                )
             except Exception as exc:
                 with _live_lock:
                     _live_state["last_error"] = str(exc)
@@ -456,7 +524,9 @@ def live_stop():
     t.join(timeout=3.0)
 
     with _live_lock:
-        _live_state["running"] = bool(_live_thread is not None and _live_thread.is_alive())
+        _live_state["running"] = bool(
+            _live_thread is not None and _live_thread.is_alive()
+        )
         if not _live_state["running"]:
             _live_thread = None
             _live_state["phase"] = "stopped"

@@ -18,12 +18,12 @@ def parse_command(command_text: str):
     "stop" -> StopCommand()
     """
     parts = command_text.strip().lower().split()
-    
+
     if not parts:
         raise ValueError("Empty command")
-    
+
     action = parts[0]
-    
+
     if action == "stop":
         return StopCommand()
 
@@ -40,7 +40,7 @@ def parse_command(command_text: str):
         y = float(parts[2])
         yaw = float(parts[3]) if len(parts) > 3 else 0.0
         return NavigateToPoseCommand(x=x, y=y, yaw_deg=yaw)
-    
+
     duration = float(parts[1]) if len(parts) > 1 else 1.0
     speed = float(parts[2]) if len(parts) > 2 else None
 

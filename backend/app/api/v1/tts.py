@@ -29,4 +29,3 @@ def say(body: TTSRequest):
 
 if __name__ == "__main__":
     tts_say("Hallo, das ist ein Test mit Pico TTS auf deinem Computer.", "de-DE")
-

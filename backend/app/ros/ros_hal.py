@@ -29,9 +29,13 @@ class RosRobotBase(RobotInterface, ABC):
     def register_publisher(self, key: str, topic: str, msg_type) -> None:
         self._publishers[key] = get_publisher(topic, msg_type)
 
-    def register_subscription(self, key: str, topic: str, msg_type, callback, qos: int = 10) -> None:
+    def register_subscription(
+        self, key: str, topic: str, msg_type, callback, qos: int = 10
+    ) -> None:
         publisher = self._publishers[self._default_key]
-        self._subscriptions[key] = publisher.create_subscription(topic, msg_type, callback, qos)
+        self._subscriptions[key] = publisher.create_subscription(
+            topic, msg_type, callback, qos
+        )
 
     def shutdown(self) -> None:
         # Cleanly stop ROS2 background threads/executors.
@@ -50,7 +54,9 @@ class RosRobotBase(RobotInterface, ABC):
 
         # Some robots/nodes expect TwistStamped headers to be left at 0 (stamp unset)
         # while others expect current time. Make this configurable.
-        stamp_mode = (os.getenv("CMD_VEL_STAMP_MODE", "preserve") or "preserve").strip().lower()
+        stamp_mode = (
+            (os.getenv("CMD_VEL_STAMP_MODE", "preserve") or "preserve").strip().lower()
+        )
         # preserve: do nothing if a stamp exists
         # now: set stamp to current node time
         # zero: force stamp = 0
@@ -63,6 +69,7 @@ class RosRobotBase(RobotInterface, ABC):
             except Exception:
                 # Fallback: if stamp is not mutable, overwrite with a zero time msg
                 from builtin_interfaces.msg import Time  # type: ignore
+
                 msg.header.stamp = Time(sec=0, nanosec=0)
 
         # Optionally set a frame_id (some stacks prefer e.g. base_link)
@@ -74,7 +81,10 @@ class RosRobotBase(RobotInterface, ABC):
         self._refresh_timestamp(msg, key)
         self._publisher(key).publish(msg)
 
-        if (os.getenv("CMD_VEL_DEBUG", "0").strip().lower() in {"1", "true", "yes", "on"}) and (key is None or key == self._default_key):
+        if (
+            os.getenv("CMD_VEL_DEBUG", "0").strip().lower()
+            in {"1", "true", "yes", "on"}
+        ) and (key is None or key == self._default_key):
             try:
                 topic = getattr(self._publisher(key), "_topic", "<topic>")
                 if hasattr(msg, "twist"):
@@ -83,7 +93,12 @@ class RosRobotBase(RobotInterface, ABC):
                 else:
                     lin_x = float(getattr(msg.linear, "x", 0.0))
                     ang_z = float(getattr(msg.angular, "z", 0.0))
-                logger.info("Published cmd_vel to %s: linear.x=%.3f angular.z=%.3f", topic, lin_x, ang_z)
+                logger.info(
+                    "Published cmd_vel to %s: linear.x=%.3f angular.z=%.3f",
+                    topic,
+                    lin_x,
+                    ang_z,
+                )
             except Exception:
                 pass
 

@@ -34,7 +34,9 @@ class TurtlesimRobot(RosRobotBase):
     def get_last_pose(self) -> Pose | None:
         return self._last_pose
 
-    def execute_command(self, cmd: Command, cancel_event: threading.Event | None = None):
+    def execute_command(
+        self, cmd: Command, cancel_event: threading.Event | None = None
+    ):
         if isinstance(cmd, StopCommand):
             self.stop()
             return

@@ -3,14 +3,30 @@ import re
 import os
 
 STOP_KEYWORDS = ["stop", "stopp", "halt", "halte an"]
-BATTERY_KEYWORDS = ["akku","batterie","batteriestand","batterie stand","ladestand","battery",]
+BATTERY_KEYWORDS = [
+    "akku",
+    "batterie",
+    "batteriestand",
+    "batterie stand",
+    "ladestand",
+    "battery",
+]
 PHOTO_KEYWORDS = ["foto", "photo", "bild", "aufnahme", "schnappschuss"]
 DOCK_KEYWORDS = ["dock", "andocken", "docke an", "an docken"]
 UNDOCK_KEYWORDS = ["undock", "abdocken", "docke ab", "ab docken"]
 FORWARD_KEYWORDS = ["vorwärts", "vorwaerts", "geradeaus", "fahr vor", "fahre vor"]
 LEFT_KEYWORDS = ["links", "nach links", "dreh links", "drehe links"]
 RIGHT_KEYWORDS = ["rechts", "nach rechts", "dreh rechts", "drehe rechts"]
-NAV_KEYWORDS = ["navigiere", "fahre zu", "geh zu", "go to", "ziel", "koordinate", "koordinaten"]
+NAV_KEYWORDS = [
+    "navigiere",
+    "fahre zu",
+    "geh zu",
+    "go to",
+    "ziel",
+    "koordinate",
+    "koordinaten",
+]
+
 
 def extract_number(text: str) -> Optional[float]:
     """
@@ -63,7 +79,7 @@ def parse_intent(stt_text: str) -> Optional[str]:
             x, y = nums[0], nums[1]
             yaw = nums[2] if len(nums) >= 3 else 0.0
             return f"nav {x} {y} {yaw}"
-    
+
     for key in STOP_KEYWORDS:
         if key in normalized:
             return "stop"
@@ -84,7 +100,7 @@ def parse_intent(stt_text: str) -> Optional[str]:
 
     if _contains_any(normalized, FORWARD_KEYWORDS):
         return f"forward {duration} {default_linear}"
-        
+
     if _contains_any(normalized, LEFT_KEYWORDS):
         return f"left {duration} {default_angular}"
 
