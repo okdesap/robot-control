@@ -10,8 +10,16 @@ Backend for controlling a ROS2 robot (TurtleBot) or a simulation (turtlesim). Th
 - **REST API** for movement/stop commands, photo, dock/undock, status/battery/map/nav-status
 - **Command queue** (non-blocking): API accepts, worker executes, emergency stop clears the queue
 - **State streaming** for the UI (SSE): `GET /api/v1/state/stream`
-- **STT** (Vosk/text) → **intent parser** (rule-based) **or** **AI function calling** (Ollama) → command queue (if LLM mode fails at runtime: automatic fallback to the intent parser)
+- **STT** (Vosk/text) → **intent parser** (rule-based) **or** **AI function calling** (Ollama) → command queue
 - **TTS** for voice feedback/confirmations (used by the backend, e.g. during STT execution)
+
+## Project notes / status
+
+- Default mode is `INTENT_MODE=parse` (rule-based intent parser).
+- To use **AI function calling**, set `INTENT_MODE=function_calling`.
+- AI function calling uses **Ollama** and expects the model to return **JSON only** (see the JSON format described in the prompt in `backend/app/api/v1/function_calling.py`).
+- The currently configured Ollama model in code is `llama3:8b` (must be installed locally, e.g. via `ollama run llama3:8b`).
+- If AI function calling fails at runtime (e.g. Ollama not reachable / invalid JSON), the backend falls back to the rule-based intent parser.
 
 ---
 
@@ -139,7 +147,7 @@ For manual tests there is [backend/test_api.http](backend/test_api.http) (e.g. w
 ## STT (Speech-to-Text) + intent
 
 The backend provides STT endpoints as well as a live loop (Vosk + `arecord`) and processes text via the intent parser or AI function calling.
-If AI function calling fails at runtime (e.g. Ollama not reachable / invalid JSON), the backend automatically falls back to the rule-based intent parser.
+If AI function calling fails at runtime (e.g. Ollama not reachable / invalid JSON), the backend falls back to the rule-based intent parser.
 
 - `POST /api/v1/stt/parse` (derive intent only)
 - `POST /api/v1/stt/execute` (derive intent + enqueue command)
@@ -192,3 +200,13 @@ Note:
 
 This almost always means: ROS2 is not installed or the ROS2 environment is not sourced.
 On Windows, WSL2 (Ubuntu + ROS2) is often the easiest development setup.
+
+## Tests / smoke checks
+
+- HTTP API collection: [backend/test_api.http](backend/test_api.http)
+- Simple parser/controller smoke test: [backend/test_backend.py](backend/test_backend.py)
+- ROS2 turtlesim publish smoke test: [backend/test_ros2_turtlesim.py](backend/test_ros2_turtlesim.py)
+
+## License
+
+No license file is currently included in this repository.
