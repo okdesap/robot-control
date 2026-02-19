@@ -1,179 +1,194 @@
-# Robot Control System
+# Robot Control System (Backend)
 
-Backend + Web-UI zur Steuerung von ROS2-Robotern (TurtleBot/Create3 oder Turtlesim).
+Backend for controlling a ROS2 robot (TurtleBot) or a simulation (turtlesim). The backend provides a REST API (FastAPI) and is consumed by a Web UI.
 
-## Voraussetzungen
+- Backend (this repo): FastAPI + ROS2 HAL + STT/TTS
+- Frontend/Web UI (separate repo): https://projectbase.medien.hs-duesseldorf.de/dsai/tftb/take-control/web-ui
 
-- ROS2 installiert und gesourct (z.B. `source /opt/ros/jazzy/setup.bash`)
-- Python venv vorhanden: `/home/ros/ros/projects/takecontrol/.venv`
-- Node.js (für Quasar UI)
-- Für STT: `arecord` + Vosk Modell (Standard: `takecontrol/LM/vosk-model-de-0.21`)
-- Für TTS: mindestens eins von: `pico2wave` + `paplay/aplay` **oder** `spd-say` **oder** `espeak/espeak-ng`
+## What is implemented?
 
-## Quickstart (Backend + UI)
+- **REST API** for movement/stop commands, photo, dock/undock, status/battery/map/nav-status
+- **Command queue** (non-blocking): API accepts, worker executes, emergency stop clears the queue
+- **State streaming** for the UI (SSE): `GET /api/v1/state/stream`
+- **STT** (Vosk/text) → **intent parser** (rule-based) **or** **AI function calling** (Ollama) → command queue (if LLM mode fails at runtime: automatic fallback to the intent parser)
+- **TTS** for voice feedback/confirmations (used by the backend, e.g. during STT execution)
 
-Terminal A (Backend):
+---
 
-```bash
-source /home/ros/ros/projects/takecontrol/.venv/bin/activate
-python /home/ros/ros/projects/takecontrol/robot-control/backend/app/main.py
+## System Architecture
+
+```mermaid
+flowchart LR
+    Client["CLIENT (WebUI)"]
+    Backend["BACKEND API (FastAPI)"]
+    Core["CONTROL CORE (Controller + Queue)"]
+    Adapter["ROBOT ADAPTER (ROS2)"]
+    Sim["TURTLESIM"]
+    Turtle["TURTLEBOT"]
+
+    Client -->|HTTP| Backend
+    Backend -->|Requests| Core
+    Core -->|Command| Adapter
+    Adapter --> Sim
+    Adapter --> Turtle
 ```
 
-Terminal B (UI):
+---
 
-```bash
-cd /home/ros/ros/projects/takecontrol/web-ui/quasar-project
-npm install
-npm run dev
+## Quickstart (Backend + Frontend)
+
+### 1) Configure the backend
+
+On startup, the backend automatically loads `backend/.env` (if present).
+
+1. Copy `backend/.env.example` to `backend/.env`
+2. Set `ROBOT_BACKEND`:
+   - `sim` = turtlesim
+   - `real` = TurtleBot
+
+Minimal example:
+
+```dotenv
+ROBOT_BACKEND=sim
 ```
 
-Backend: http://127.0.0.1:8000/docs
+### 2) Start the backend
 
-## Backend starten (empfohlen)
+**Prerequisites (for real robot control):** ROS2 is installed and your environment is sourced so that `import rclpy` works.
+Without ROS2, the backend may still start (e.g. `/docs`), but robot calls will fail.
 
-### Real TurtleBot/Create3 (Linux)
+#### Windows (PowerShell) / Linux (shell) – Python venv
 
-Das Script lädt ROS2 + Workspace + venv:
-
-```bash
-/home/ros/ros/projects/takecontrol/robot-control/backend/run_backend.sh
-```
-
-### Turtlesim (Linux)
+From the repo root:
 
 ```bash
-ros2 run turtlesim turtlesim_node
-
-source /home/ros/ros/projects/takecontrol/.venv/bin/activate
-export ROBOT_BACKEND=sim
-python /home/ros/ros/projects/takecontrol/robot-control/backend/app/main.py
+cd backend
+python -m venv .venv
 ```
 
-### Wichtig: Port 8000 schon belegt
+Activate:
 
-Wenn du `address already in use` bekommst, läuft schon ein Backend. Prüfen:
+- Windows (PowerShell):
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+```
+
+- Linux/macOS/WSL:
 
 ```bash
-ss -ltnp | grep ':8000'
+source .venv/bin/activate
 ```
 
-## UI (Quasar)
+Install dependencies:
 
 ```bash
-cd /home/ros/ros/projects/takecontrol/web-ui/quasar-project
-npm install
-npm run dev
+pip install -r requirements.txt
 ```
 
-Die UI spricht standardmäßig das Backend unter `http://127.0.0.1:8000` an.
-
-## STT → API → Bot (Vosk)
-
-Ziel: Vosk erkennt Sprache → Script schickt **rohen Text** an `POST /api/v1/stt/execute` → Backend erkennt Intent + fährt + spricht Bestätigung.
-
-### 1) Backend muss laufen
+Start the server (recommended):
 
 ```bash
-curl -s http://127.0.0.1:8000/api/v1/control/health
+python -m app.main
 ```
 
-### 2) STT Live-Stream starten
+API docs:
+
+- Swagger UI: http://127.0.0.1:8000/docs
+- Health: http://127.0.0.1:8000/api/v1/control/health
+
+#### Linux shortcut (ROS2 + venv)
+
+If you use ROS2 Jazzy on Linux, you can also use the helper script:
 
 ```bash
-source /home/ros/ros/projects/takecontrol/.venv/bin/activate
-cd /home/ros/ros/projects/takecontrol/robot-control/backend/app/api/v1
-
-# optional, falls Backend nicht lokal ist
-export BACKEND_BASE_URL='http://127.0.0.1:8000'
-
-# optional: Vosk Modellpfad
-export STT_MODEL_PATH='/home/ros/ros/projects/takecontrol/LM/vosk-model-de-0.21'
-
-python stt.py
+./backend/run_backend.sh
 ```
 
-### Audio "Gerät belegt" (PipeWire/WirePlumber)
+### 2a) STT/TTS + AI function calling prerequisites
 
-Wenn `arecord` mit `Ressource ist belegt` abbricht: nutze **kein** `hw:*`, sondern ein PipeWire-freundliches Device:
+To run the system as intended (voice → intent → robot + voice feedback), additional dependencies are required. This is especially relevant if you want to use `INTENT_MODE=function_calling`:
 
-```bash
-export STT_DEVICE='default:CARD=ArrayUAC10'
-python stt.py
-```
+- **STT (Vosk)**: a Vosk model (`STT_MODEL_PATH`) and—for live microphone input—an audio input, typically via `arecord` (on Windows usually via WSL2)
+- **AI function calling**: running **Ollama** + an installed model (e.g. `llama3:8b`) if `INTENT_MODE=function_calling` is used
+- **TTS**: at least one engine available (`pico2wave` + player `paplay/aplay`, or `spd-say`, or `espeak/espeak-ng`)
 
-Verfügbare Geräte anzeigen:
+### 3) Start the frontend/Web UI
 
-```bash
-arecord -L
-arecord -l
-```
+The Web UI is in a separate repository:
 
-### STT ohne Mikro testen (HTTP)
+- https://projectbase.medien.hs-duesseldorf.de/dsai/tftb/take-control/web-ui
 
-```bash
-curl -sS -X POST http://127.0.0.1:8000/api/v1/stt/execute \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"fahre vorwärts"}'
-```
+Follow the setup steps there. Important: the UI must be able to reach the backend at `http://127.0.0.1:8000`.
 
-## TTS (HTTP)
+## API – key endpoints
 
-```bash
-curl -sS -X POST http://127.0.0.1:8000/api/v1/tts/say \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"Hallo, Testausgabe.","lang":"de-DE"}'
-```
+All endpoints are documented in `/docs`. Commonly used:
 
-TTS-Settings (optional):
-
-```bash
-# auto | pico2wave | spd-say | espeak
-export TTS_ENGINE=auto
-
-# falls du einen Player erzwingen willst (z.B. "paplay" oder "aplay")
-export TTS_PLAYER='paplay'
-
-# abschalten
-export TTS_ENABLED=0
-```
-
-## Steuer-API (Kurz)
-
-- `POST /api/v1/control/command` Body: `{"command":"forward 1.0 0.5"}`
+- `GET /api/v1/control/health`
+- `POST /api/v1/control/command` → `{"command":"forward 1.5 0.5"}`
+- Dock/undock also uses `POST /api/v1/control/command` with `{"command":"dock"}` or `{"command":"undock"}`
 - `POST /api/v1/control/stop`
 - `GET /api/v1/control/photo`
 - `GET /api/v1/control/dock_status`
+- `GET /api/v1/state/snapshot`
+- `GET /api/v1/state/stream` (Server-Sent Events)
 
-Swagger UI: http://127.0.0.1:8000/docs
+For manual tests there is [backend/test_api.http](backend/test_api.http) (e.g. with the VS Code REST Client).
 
-## Docking / Undocking
+## STT (Speech-to-Text) + intent
 
-Der Backend-Default ist **Create3 Actions** `/dock` und `/undock` (ohne Nav2/AMCL).
+The backend provides STT endpoints as well as a live loop (Vosk + `arecord`) and processes text via the intent parser or AI function calling.
+If AI function calling fails at runtime (e.g. Ollama not reachable / invalid JSON), the backend automatically falls back to the rule-based intent parser.
 
-Status prüfen:
+- `POST /api/v1/stt/parse` (derive intent only)
+- `POST /api/v1/stt/execute` (derive intent + enqueue command)
+- Live STT (microphone): `POST /api/v1/stt/live/start`, `POST /api/v1/stt/live/stop`, `GET /api/v1/stt/live/status`
 
-```bash
-curl -s http://127.0.0.1:8000/api/v1/control/dock_status
-```
+Important env vars:
 
-## Kamera / Foto
+- `INTENT_MODE=parse` (intent parser) or `INTENT_MODE=function_calling` (AI function calling via Ollama)
+- `STT_MODEL_PATH` (Vosk model)
+- `STT_DEVICE`, `STT_SAMPLE_RATE`
+- `WAKE_WORD`, `WAKE_TIMEOUT_S`
+- `STT_DEFAULT_LINEAR`, `STT_DEFAULT_ANGULAR`
 
-Die Foto-Funktion nutzt ROS2 Image Topics (Standard):
+Note:
 
-- `/camera/image_raw`
-- `/oakd/rgb/preview/image_raw`
+- Even without a microphone/`arecord`, you can still send text directly to `POST /api/v1/stt/execute` (from the UI or via HTTP).
 
-Topics überschreiben:
+## TTS (Text-to-Speech)
 
-```bash
-export CAMERA_TOPIC=/dein/camera/topic
-export OAKD_CAMERA_TOPIC=/dein/oakd/topic
-```
+- `POST /api/v1/tts/say`
 
-Foto-Format (optional):
+Env vars:
 
-```bash
-export PHOTO_FORMAT=jpeg   # oder png
-export PHOTO_MAX_WIDTH=640
-export PHOTO_JPEG_QUALITY=75
-```
+- `TTS_ENABLED=1|0`
+- `TTS_ENGINE=auto|pico2wave|spd-say|espeak`
+- `TTS_PLAYER` (e.g. `paplay` or `aplay`, if pico2wave is used)
+- `TTS_LANG` (default `de-DE`)
+
+Note:
+
+- The backend uses TTS for confirmations during STT execution. To temporarily disable it: `TTS_ENABLED=0`.
+
+## Robot/ROS2 configuration (common)
+
+- `ROBOT_BACKEND=sim|real`
+- `CMD_VEL_TOPIC` (default `/cmd_vel`)
+- `CMD_VEL_MSG_TYPE=TwistStamped|Twist` (default `TwistStamped`)
+- `CMD_VEL_PUBLISH_UNSTAMPED=1|0` and `CMD_VEL_UNSTAMPED_TOPIC` (fallback for stacks that expect Twist)
+- QoS: `CMD_VEL_RELIABILITY`, `CMD_VEL_DURABILITY`, `CMD_VEL_DEPTH`
+- Camera: `CAMERA_TOPIC`, `OAKD_CAMERA_TOPIC`, `PHOTO_FORMAT=jpeg|png`, `PHOTO_MAX_WIDTH`, `PHOTO_JPEG_QUALITY`
+
+## Troubleshooting
+
+### Port 8000 is already in use
+
+- Windows: `netstat -ano | findstr :8000`
+- Linux: `ss -ltnp | grep ':8000'`
+
+### ROS2 imports fail (`import rclpy`)
+
+This almost always means: ROS2 is not installed or the ROS2 environment is not sourced.
+On Windows, WSL2 (Ubuntu + ROS2) is often the easiest development setup.
